@@ -19,6 +19,7 @@ static int i2c_write(uint8_t* data, uint8_t length, uint8_t address) {
 
 
 static int i2c_read(uint8_t* data, uint8_t length, uint8_t address) {
+
     if (ioctl(i2c_fd, I2C_SLAVE, address) < 0) {
         perror("Failed to select I2C device");
         return -1;
@@ -40,6 +41,8 @@ static int i2c_write_read(uint8_t* writeData,
     if (i2c_write(writeData, writeLength, address)) {
         return -1;
     }
+
+    usleep(5000);
 
     if (i2c_read(readData, readLength, address)) {
         return -1;
@@ -72,17 +75,19 @@ int read_psm_measurements(double* voltage, double* current) {
         CFG_OS_SINGLE | CFG_MUX_DIFF_0_1 | CFG_PGA_6_144V | CFG_MODE_SINGLE |
         CFG_DR_128SPS | CFG_COMP_MODE | CFG_COMP_POL | CFG_COMP_LAT |
         CFG_COMP_QUE_DIS;
+    uint8_t reg_conv = REG_CONV;
 
     uint16_t config = default_config;
     config &= ~0x7000;
     config |= CFG_MUX_DIFF_0_1;
+  
     if (start_conversion(config))
         return -1;
 
     usleep(10000);
 
     uint8_t i2c_data[2];
-    if (i2c_write_read(REG_CONV, 1, i2c_data, 2, PSM_ADDRESS))
+    if (i2c_write_read(&reg_conv, 1, i2c_data, 2, PSM_ADDRESS))
         return -1;
     int16_t raw_voltage = (int16_t)((i2c_data[0] << 8) | i2c_data[1]);
     *voltage =
@@ -91,11 +96,12 @@ int read_psm_measurements(double* voltage, double* current) {
     config = default_config;
     config &= ~0x7000;
     config |= CFG_MUX_DIFF_2_3;
+
     if (start_conversion(config))
         return -1;
     usleep(10000);
 
-    if (i2c_write_read(REG_CONV, 1, i2c_data, 2, PSM_ADDRESS))
+    if (i2c_write_read(&reg_conv, 1, i2c_data, 2, PSM_ADDRESS))
         return -1;
     int16_t raw_current = (int16_t)((i2c_data[0] << 8) | i2c_data[1]);
     *current = (CURRENT_OFFSET - ((raw_current * VOLTAGE_RANGE) / 32768.0)) /
