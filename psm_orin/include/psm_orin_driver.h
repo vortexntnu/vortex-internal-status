@@ -12,6 +12,10 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#define MPRLS_ADDRESS 0x18
+#define MPRLS_REG     0xAA
+
+
 #define PSM_ADDRESS 0x48
 #define REG_CONV    0x00
 #define REG_CFG     0x01
@@ -35,6 +39,11 @@
 #define CURRENT_SENSITIVITY 0.0255
 
 
+#define COUNTS_MIN 0x066666
+#define COUNTS_MAX 0x399999
+#define PRESSURE_MIN 0
+#define PRESSURE_MAX 250
+
 #define I2C_BUS 7
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
@@ -46,8 +55,9 @@
 extern "C" {
 #endif  // __cplusplus
 
-int i2c_psm_init();
-int read_measurements(double* voltage, double* current);
+int i2c_init();
+int read_psm_measurements(double* voltage, double* current);
+int read_pressure(double* pressure);
 
 #ifdef __cplusplus
 }
