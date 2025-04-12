@@ -17,9 +17,7 @@ static int i2c_write(uint8_t* data, uint8_t length, uint8_t address) {
     return 0;
 }
 
-
 static int i2c_read(uint8_t* data, uint8_t length, uint8_t address) {
-
     if (ioctl(i2c_fd, I2C_SLAVE, address) < 0) {
         perror("Failed to select I2C device");
         return -1;
@@ -80,7 +78,7 @@ int read_psm_measurements(double* voltage, double* current) {
     uint16_t config = default_config;
     config &= ~0x7000;
     config |= CFG_MUX_DIFF_0_1;
-  
+
     if (start_conversion(config))
         return -1;
 
@@ -118,8 +116,9 @@ int read_pressure(double* pressure) {
     }
     uint8_t status = i2c_data[0];
     int32_t pressure_counts =
-        (int32_t) ((i2c_data[1] << 16) | (i2c_data[2] << 8) | i2c_data[3]);
-    double scale = (PRESSURE_MAX - PRESSURE_MIN) / (double)(COUNTS_MAX - COUNTS_MIN);
+        (int32_t)((i2c_data[1] << 16) | (i2c_data[2] << 8) | i2c_data[3]);
+    double scale =
+        (PRESSURE_MAX - PRESSURE_MIN) / (double)(COUNTS_MAX - COUNTS_MIN);
     *pressure = (pressure_counts - COUNTS_MIN) * scale + PRESSURE_MIN;
 
     return 0;

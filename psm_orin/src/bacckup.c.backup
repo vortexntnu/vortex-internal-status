@@ -74,4 +74,3 @@ void read_scaled_measurements(double *voltage, double *current) {
     set_mux_diff(1);
     *current = (0.595 - read_voltage()) / 0.0255;
  }
-

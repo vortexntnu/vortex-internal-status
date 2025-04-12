@@ -39,7 +39,6 @@ class CANInterface : public rclcpp::Node {
      */
     void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);
 
-
     void can_receive_loop();
     void on_can_message(const CANFD_Message& msg);
     /**

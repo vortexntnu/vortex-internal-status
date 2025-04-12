@@ -11,4 +11,4 @@
       idle: 1500
     can:
       interface: "can0"
-      
+
