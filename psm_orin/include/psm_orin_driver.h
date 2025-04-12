@@ -55,8 +55,28 @@
 extern "C" {
 #endif  // __cplusplus
 
+/**
+ *@brief i2c initialize
+ *@param none
+ *@return -1 if fails and 0 on success
+  */
 int i2c_init();
+
+
+/** 
+*@brief Reads current and voltage for the PSM
+*@param pointer to double holding voltage
+*@param pointer to double holding current
+*@return -1 on failure and 0 on success
+*/
 int read_psm_measurements(double* voltage, double* current);
+
+
+/** 
+*@brief Reads current and voltage for the MPRLS
+*@param pointer to double holding pressure
+*@return -1 on failure and 0 on success
+*/
 int read_pressure(double* pressure);
 
 #ifdef __cplusplus
