@@ -15,6 +15,7 @@
 #define MPRLS_ADDRESS 0x18
 #define MPRLS_REG     0xAA
 
+#define TELEMETRY_ADDRESS 0x69
 
 #define PSM_ADDRESS 0x48
 #define REG_CONV    0x00
@@ -78,6 +79,9 @@ int read_psm_measurements(double* voltage, double* current);
 *@return -1 on failure and 0 on success
 */
 int read_pressure(double* pressure);
+
+
+int read_telemetry(double* voltage, double* current);
 
 #ifdef __cplusplus
 }
