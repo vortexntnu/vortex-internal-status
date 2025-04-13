@@ -2,12 +2,11 @@
 #define CAN_INTERFACE_UTILS_HPP
 
 #include <array>
-#include <cstdint>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
-
-std::vector<double> convert_angles_to_radians(const uint8_t* can_data); 
+std::vector<double> convert_angles_to_radians(const uint8_t* can_data);
 
 static constexpr std::uint16_t joy_to_pwm(std::uint16_t pwm_idle,
                                           std::uint16_t pwm_gain,
