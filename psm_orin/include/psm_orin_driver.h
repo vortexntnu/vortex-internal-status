@@ -13,14 +13,10 @@
 #include <unistd.h>
 
 #define MPRLS_ADDRESS 0x18
-<<<<<<< HEAD
 #define MPRLS_REG 0xAA
 
 #define TELEMETRY_ADDRESS 0x69
-    == == ==
-    =
 #define MPRLS_REG 0xAA
-        >>>>>>> d8920802880c136414daad041b0399efb45e3ec2
 
 #define PSM_ADDRESS 0x48
 #define REG_CONV 0x00
