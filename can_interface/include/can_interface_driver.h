@@ -76,7 +76,6 @@ void canfd_close();
 void set_can_filter(uint16_t start_id, uint16_t id_mask);
 
 #ifdef __cplusplus
-
 }
 
 #endif

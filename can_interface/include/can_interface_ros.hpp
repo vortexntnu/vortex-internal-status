@@ -17,7 +17,6 @@
 #include "can_interface_driver.h"
 #include "can_interface_utils.hpp"
 
-
 class CANInterface : public rclcpp::Node {
    public:
     CANInterface();
