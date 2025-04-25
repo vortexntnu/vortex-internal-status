@@ -104,16 +104,14 @@ void CANInterface::can_receive_loop() {
 void CANInterface::on_can_message(const CANFD_Message& msg) {
     switch (msg.id) {
         case ENCODER_ANGLES:
-            uint8_t encoder_status = msg.data[6];
-            std::vector<double> angles;
-            angles = convert_angles_to_radians(msg.data);
+            const uint8_t encoder_status = msg.data[6];
+            std::vector<double> encoder_angles;
+            convert_angles_to_radians(msg.data, encoder_angles);
 
-            if (encoder_status > 0) {
-                for (int i = 0; i < NUM_ANGLES; i++) {
-                    if (encoder_status & (1 << i)) {
-                        angles.at(i) = -1;
-                        spdlog::error("Reading encoder {} failed", i);
-                    }
+            for (int i = 0; i < NUM_ANGLES; i++) {
+                if (encoder_status & (1 << i)) {
+                    encoder_angles.at(i) = -1;
+                    spdlog::error("Reading encoder {} failed", i);
                 }
             }
 
@@ -121,7 +119,7 @@ void CANInterface::on_can_message(const CANFD_Message& msg) {
 
             joint_state_msg.header.stamp = this->now();
             joint_state_msg.name = {"shoulder", "wrist", "grip"};
-            joint_state_msg.position = angles;
+            joint_state_msg.position = encoder_angles;
 
             joint_state_pub_->publish(joint_state_msg);
             break;
