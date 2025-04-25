@@ -17,7 +17,6 @@ include_directories(include)
 add_executable(can_interface_node
   src/can_interface_driver.c
   src/can_interface_ros.cpp
-  src/can_interface_utils.cpp
 )
 
 ament_target_dependencies(can_interface_node

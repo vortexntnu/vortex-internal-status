@@ -131,7 +131,7 @@ int read_pressure(double* pressure) {
     if (i2c_write_read(write_data, 3, i2c_data, 4, MPRLS_ADDRESS)) {
         return -1;
     }
-    uint8_t status = i2c_data[0];
+    // uint8_t status = i2c_data[0];
     int32_t pressure_counts =
         (int32_t)((i2c_data[1] << 16) | (i2c_data[2] << 8) | i2c_data[3]);
     double scale =
