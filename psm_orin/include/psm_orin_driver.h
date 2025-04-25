@@ -76,7 +76,6 @@ int read_psm_measurements(double* voltage, double* current);
  */
 int read_pressure(double* pressure);
 
-<<<<<<< HEAD
 /**
  *@brief Reads current and voltage for the PSM
  *@param pointer to double holding voltage
@@ -84,9 +83,6 @@ int read_pressure(double* pressure);
  *@return -1 on failure and 0 on success
  */
 int read_telemetry(double* voltage, double* current);
-=======
-int read_telemetry(double* voltage, double* current);
->>>>>>> ea99cb58c5e80883792284907fcefe1d391f4366
 
 #ifdef __cplusplus
 }
