@@ -76,6 +76,12 @@
      */
     int read_pressure(double* pressure);
 
+    /**
+     *@brief Reads current and voltage for the PSM
+     *@param pointer to double holding voltage
+     *@param pointer to double holding current
+     *@return -1 on failure and 0 on success
+     */
     int read_telemetry(double* voltage, double* current);
 
 #ifdef __cplusplus

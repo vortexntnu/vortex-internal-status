@@ -42,10 +42,37 @@ typedef enum {
 
 } CAN_TRANSMIT_MESSAGE_ID;
 
+
+/**
+ * @brief Initializes CAN socket
+ * @param CAN interface
+ * @return -1 on failure and 0 on success
+*/
 int canfd_init(const char* interface);
+/**
+ * @brief send CAN frame
+ * @param pointer to CAN message
+ * @return -1 on failure and 0 on success
+*/
 int canfd_send(const CANFD_Message* msg);
+
+/**
+ * @brief recieves CAN frame
+ * @param pointer to CAN message
+ * @param timeout in ms
+ * @return -1 on failure and 0 on success
+*/
 int canfd_recieve(CANFD_Message* msg, int timout_ms);
+/**
+  * @brief Closes CAN socket
+  */
 void canfd_close();
+
+/**
+  * @brief Sets CAN id filtering 
+  * @param start_id
+  * @param id mask
+  */
 void set_can_filter(uint16_t start_id, uint16_t id_mask);
 
 #ifdef __cplusplus

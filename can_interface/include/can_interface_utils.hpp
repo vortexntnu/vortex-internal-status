@@ -6,6 +6,10 @@
 #include <cstdint>
 #include <vector>
 
+/**
+ * @brief Converts from raw angle to radians
+ * @param raw angle data
+ * */
 std::vector<double> convert_angles_to_radians(const uint8_t* can_data);
 
 static constexpr std::uint16_t joy_to_pwm(std::uint16_t pwm_idle,
