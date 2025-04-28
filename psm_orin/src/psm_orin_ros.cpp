@@ -4,11 +4,15 @@
 
 PSMOrinNode::PSMOrinNode() : Node("psm_orin_node") {
     set_subscribers_and_publishers();
-    i2c_psm_init();
+    i2c_init();
 
-    watchdog_timer_ = this->create_wall_timer(
+    read_psm_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(500),
         std::bind(&PSMOrinNode::read_ads_callback, this));
+
+    read_pressure_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(1000),
+        std::bind(&PSMOrinNode::read_pressure_callback, this));
 
     last_msg_time_ = this->now();
 }
@@ -18,6 +22,8 @@ void PSMOrinNode::set_subscribers_and_publishers() {
         this->create_publisher<std_msgs::msg::Float64>("voltage", 10);
     current_pub_ =
         this->create_publisher<std_msgs::msg::Float64>("current", 10);
+    pressure_pub_ =
+        this->create_publisher<std_msgs::msg::Float64>("pressure", 10);
 }
 
 void PSMOrinNode::publish_voltage() {
@@ -32,8 +38,18 @@ void PSMOrinNode::publish_current() {
     current_pub_->publish(current_msg);
 }
 
+void PSMOrinNode::publish_pressure() {
+    auto pressure_msg = std_msgs::msg::Float64();
+    pressure_msg.data = current;
+    pressure_pub_->publish(pressure_msg);
+}
+
 void PSMOrinNode::read_ads_callback() {
-    if (read_measurements(&voltage, &current)) {
+    // if (read_psm_measurements(&voltage, &current)) {
+    //     return;
+    // }
+
+    if (read_telemetry(&voltage, &current)) {
         return;
     }
 
@@ -47,13 +63,22 @@ void PSMOrinNode::read_ads_callback() {
     }
 }
 
+void PSMOrinNode::read_pressure_callback() {
+    if (read_pressure(&pressure)) {
+        return;
+    }
+
+    publish_pressure();
+}
+
 int main(int argc, char** argv) {
     auto now = std::chrono::system_clock::now();
     std::time_t now_time = std::chrono::system_clock::to_time_t(now);
     std::tm tm_struct;
     localtime_r(&now_time, &tm_struct);
     char timestamp[64];
-    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H-%M-%S", &tm_struct);
+    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H-%M-%S",
+                  &tm_struct);
     std::string filename = std::string("psm_data_") + timestamp + ".csv";
 
     auto file_logger = spdlog::basic_logger_mt("file_logger", filename);

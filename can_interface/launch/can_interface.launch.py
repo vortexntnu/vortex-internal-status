@@ -4,9 +4,9 @@ from launch_ros.actions import Node
 
 def generate_launch_description() -> LaunchDescription:
     thruster_interface_auv_node = Node(
-        package="psm_orin",
-        executable="psm_orin_node",
-        name="psm_orin_node",
+        package="can_interface",
+        executable="can_interface_node",
+        name="can_interface_node",
         namespace="orca",
         output="screen",
     )
