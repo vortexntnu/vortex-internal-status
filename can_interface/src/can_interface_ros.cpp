@@ -1,6 +1,9 @@
 #include "can_interface_ros.hpp"
 #include <spdlog/common.h>
 #include <spdlog/spdlog.h>
+#include <array>
+#include <cstdint>
+#include "can_interface_utils.hpp"
 
 CANInterface::CANInterface() : Node("can_interface_node") {
     extract_parameters();
@@ -48,21 +51,18 @@ void CANInterface::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg) {
     double wrist_value = msg->axes[0];
     double grip_value = msg->axes[3];
 
-    pwm_values.at(0) = joy_to_pwm(pwm_idle_, pwm_gain_, shoulder_value);
-    pwm_values.at(1) = joy_to_pwm(pwm_idle_, pwm_gain_, wrist_value);
-    pwm_values.at(2) = joy_to_pwm(pwm_idle_, pwm_gain_, grip_value);
+    pwm_values[0] = joy_to_pwm(pwm_idle_, pwm_gain_, shoulder_value);
+    pwm_values[1] = joy_to_pwm(pwm_idle_, pwm_gain_, wrist_value);
+    pwm_values[2] = joy_to_pwm(pwm_idle_, pwm_gain_, grip_value);
 
     canMsg.id = SET_GRIPPER_PWM;
     canMsg.is_extended = false;
     canMsg.is_fd = true;
 
-    auto joined_bytes = pwm_values |
-                        std::views::transform([](std::uint16_t pwm) {
-                            return pwm_to_can_data(pwm);
-                        }) |
-                        std::views::join;
-
-    std::ranges::copy(joined_bytes, canMsg.data);
+    for (size_t i = 0; i < 3; i++) {
+      canMsg.data[2*i] = (uint8_t) (pwm_values[i] >> 8) & 0xFF;
+      canMsg.data[2*i-1] = (uint8_t) pwm_values[i] & 0xFF;
+    }
 
     canMsg.length = pwm_values.size() * 2;
 
