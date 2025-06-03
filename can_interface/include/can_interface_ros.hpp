@@ -16,6 +16,7 @@
 #include <vector>
 #include "can_interface_driver.h"
 #include "can_interface_utils.hpp"
+#include "can_interface_message_handler.hpp"
 
 class CANInterface : public rclcpp::Node {
    public:

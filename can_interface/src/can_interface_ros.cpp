@@ -3,6 +3,8 @@
 #include <spdlog/spdlog.h>
 #include <array>
 #include <cstdint>
+#include "can_interface_driver.h"
+#include "can_interface_message_handler.hpp"
 #include "can_interface_utils.hpp"
 
 CANInterface::CANInterface() : Node("can_interface_node") {
@@ -60,8 +62,8 @@ void CANInterface::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg) {
     canMsg.is_fd = true;
 
     for (size_t i = 0; i < 3; i++) {
-      canMsg.data[2*i] = (uint8_t) (pwm_values[i] >> 8) & 0xFF;
-      canMsg.data[2*i-1] = (uint8_t) pwm_values[i] & 0xFF;
+        canMsg.data[2 * i] = static_cast<uint8_t>((pwm_values[i] >> 8) & 0xFF);
+        canMsg.data[2 * i + 1] = static_cast<uint8_t>(pwm_values[i] & 0xFF);
     }
 
     canMsg.length = pwm_values.size() * 2;
@@ -104,25 +106,18 @@ void CANInterface::can_receive_loop() {
 void CANInterface::on_can_message(const CANFD_Message& msg) {
     switch (msg.id) {
         case ENCODER_ANGLES:
-            const uint8_t encoder_status = msg.data[6];
-            std::vector<double> encoder_angles;
-            convert_angles_to_radians(msg.data, encoder_angles);
-
-            for (int i = 0; i < NUM_ANGLES; i++) {
-                if (encoder_status & (1 << i)) {
-                    encoder_angles.at(i) = -1;
-                    spdlog::error("Reading encoder {} failed", i);
-                }
-            }
-
-            auto joint_state_msg = sensor_msgs::msg::JointState();
-
-            joint_state_msg.header.stamp = this->now();
-            joint_state_msg.name = {"shoulder", "wrist", "grip"};
-            joint_state_msg.position = encoder_angles;
-
-            joint_state_pub_->publish(joint_state_msg);
+            encoder_angles_handler(msg, joint_state_pub_, this->get_clock());
             break;
+
+        case PRESSURE: {
+            break;
+        }
+        case TEMP: {
+            break;
+        }
+        default: {
+            break;
+        }
     }
 }
 
