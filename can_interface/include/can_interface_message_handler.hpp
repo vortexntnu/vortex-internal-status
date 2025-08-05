@@ -22,8 +22,8 @@
 
 
 void encoder_angles_handler(const CANFD_Message& msg, rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub, rclcpp::Clock::SharedPtr clock);
-void pressure_handler(CANFD_Message& msg);
-void temp_handler(CANFD_Message& msg);
+void pressure_handler(const CANFD_Message& msg);
+void temp_handler(const CANFD_Message& msg);
 
 
 #endif
