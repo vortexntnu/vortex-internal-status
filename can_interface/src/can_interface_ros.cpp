@@ -114,6 +114,9 @@ void CANInterface::on_can_message(const CANFD_Message& msg) {
             break;
         case TEMP_INTERNAL:
             break;
+        case PSM:
+            psm_handler(msg, voltage_pub_, current_pub_);
+            break;
         default:
             break;
     }

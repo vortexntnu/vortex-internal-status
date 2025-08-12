@@ -26,7 +26,8 @@ typedef enum {
     ENCODER_ANGLES = 0x47A,
     TEMP_INTERNAL,
     PRESSURE_INTERNAL,
-    PRESSURE_EXTERNAL
+    PRESSURE_EXTERNAL,
+    PSM
 } CAN_RECIEVE_MESSAGE_ID;
 
 /*Enum contain the different CAN transmit ID */

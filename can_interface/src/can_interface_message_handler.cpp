@@ -45,11 +45,14 @@ void psm_handler(
     const CANFD_Message& msg,
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr voltage_pub_,
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr current_pub_) {
+
     double current, voltage;
     psm_unit_conversion(msg.data, current, voltage);
+
     auto voltage_msg = std_msgs::msg::Float64();
     voltage_msg.data = voltage;
     voltage_pub_->publish(voltage_msg);
+
     auto current_msg = std_msgs::msg::Float64();
     current_msg.data = current;
     current_pub_->publish(current_msg);
