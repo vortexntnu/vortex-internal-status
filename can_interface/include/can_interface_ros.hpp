@@ -11,6 +11,7 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <sensor_msgs/msg/joy.hpp>
 #include <std_msgs/msg/int16_multi_array.hpp>
+#include <std_msgs/msg/float64.hpp>
 #include <string>
 #include <thread>
 #include <vector>
@@ -62,6 +63,8 @@ class CANInterface : public rclcpp::Node {
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
     rclcpp::Publisher<std_msgs::msg::Int16MultiArray>::SharedPtr pwm_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr voltage_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr current_pub_;
     rclcpp::TimerBase::SharedPtr watchdog_timer_;
     rclcpp::Time last_msg_time_;
 };

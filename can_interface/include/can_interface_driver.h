@@ -24,8 +24,9 @@ typedef struct {
 /*Enum containing the different CAN receive ID */
 typedef enum {
     ENCODER_ANGLES = 0x47A,
-    TEMP,
-    PRESSURE,
+    TEMP_INTERNAL,
+    PRESSURE_INTERNAL,
+    PRESSURE_EXTERNAL
 } CAN_RECIEVE_MESSAGE_ID;
 
 /*Enum contain the different CAN transmit ID */

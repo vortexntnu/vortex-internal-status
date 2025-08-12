@@ -108,16 +108,14 @@ void CANInterface::on_can_message(const CANFD_Message& msg) {
         case ENCODER_ANGLES:
             encoder_angles_handler(msg, joint_state_pub_, this->get_clock());
             break;
-
-        case PRESSURE: {
+        case PRESSURE_INTERNAL:
             break;
-        }
-        case TEMP: {
+        case PRESSURE_EXTERNAL:
             break;
-        }
-        default: {
+        case TEMP_INTERNAL:
             break;
-        }
+        default:
+            break;
     }
 }
 
