@@ -1,6 +1,7 @@
 
 
 #include "can_interface_message_handler.hpp"
+#include <linux/can.h>
 #include <sys/types.h>
 #include <cstdint>
 #include <ctime>
@@ -27,7 +28,7 @@ static constexpr void psm_unit_conversion(const uint8_t* raw_data,
 }
 
 void encoder_angles_handler(
-    const CANFD_Message& msg,
+    const struct canfd_frame& msg,
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub,
     rclcpp::Clock::SharedPtr clock) {
     std::vector<double> encoder_angles;
@@ -42,7 +43,7 @@ void encoder_angles_handler(
 }
 
 void psm_handler(
-    const CANFD_Message& msg,
+    const struct canfd_frame& msg,
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr voltage_pub_,
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr current_pub_) {
 

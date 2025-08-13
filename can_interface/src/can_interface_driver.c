@@ -48,6 +48,7 @@ int canfd_init(const char* interface) {
 
     return 0;
 }
+
 void set_can_filter(uint16_t start_id, uint16_t id_mask) {
     struct can_filter filter[1];
     filter[0].can_id = start_id;
@@ -59,29 +60,9 @@ void set_can_filter(uint16_t start_id, uint16_t id_mask) {
     }
 }
 
-int canfd_send(const CANFD_Message* msg) {
-    struct canfd_frame frame;
-    memset(&frame, 0, sizeof(frame));
+int canfd_send(const struct canfd_frame* frame) {
 
-    frame.can_id = msg->id;
-    if (msg->is_extended) {
-        frame.can_id |= CAN_EFF_FLAG;
-    }
-    if (msg->is_fd) {
-        frame.len = msg->length;
-    } else {
-        if (msg->length > 8) {
-            perror(
-                "CAN 2.0 only supports messages a maximum of 8 bytes payload");
-            return -1;
-        }
-        frame.len = msg->length;
-        /*frame.len = msg->length > CAN_MAX_DLEN ? CAN_MAX_DLEN : msg->length;*/
-    }
-
-    memcpy(frame.data, msg->data, frame.len);
-
-    if (write(sock, &frame, sizeof(frame)) != sizeof(frame)) {
+    if (write(sock, frame, sizeof(*frame)) != sizeof(*frame)) {
         perror("Error sending CAN FD message");
         return -1;
     }
@@ -89,8 +70,7 @@ int canfd_send(const CANFD_Message* msg) {
     return 0;
 }
 
-int canfd_recieve(CANFD_Message* msg, int timeout_ms) {
-    struct canfd_frame frame;
+int canfd_recieve(struct canfd_frame* msg, int timeout_ms) {
     struct timeval timeout;
     fd_set read_fds;
 
@@ -108,16 +88,10 @@ int canfd_recieve(CANFD_Message* msg, int timeout_ms) {
         return -1;  // Timeout
     }
 
-    if (read(sock, &frame, sizeof(frame)) != sizeof(frame)) {
+    if (read(sock, msg, sizeof(*msg)) != sizeof(*msg)) {
         perror("Error receiving CAN FD message");
         return -1;
     }
-
-    msg->id = frame.can_id & CAN_EFF_MASK;
-    msg->is_extended = (frame.can_id & CAN_EFF_FLAG) ? true : false;
-    msg->is_fd = true;
-    msg->length = frame.len;
-    memcpy(msg->data, frame.data, frame.len);
 
     return 0;
 }

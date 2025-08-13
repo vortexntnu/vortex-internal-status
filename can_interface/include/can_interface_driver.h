@@ -9,17 +9,24 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
-
-#define CANFD_MTU 72
-#define CAN_MAX_DLEN 8
-
-typedef struct {
-    uint32_t id;
-    uint8_t length;
-    uint8_t data[CANFD_MTU];
-    bool is_extended;
-    bool is_fd;
-} CANFD_Message;
+#include <errno.h>
+#include <fcntl.h>
+#include <linux/can.h>
+#include <linux/can/bcm.h>
+#include <linux/can/error.h>
+#include <linux/can/gw.h>
+#include <linux/can/isotp.h>
+#include <linux/can/j1939.h>
+#include <linux/can/netlink.h>
+#include <linux/can/raw.h>
+#include <net/if.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 /*Enum containing the different CAN receive ID */
 typedef enum {
@@ -55,7 +62,7 @@ int canfd_init(const char* interface);
  * @param pointer to CAN message
  * @return -1 on failure and 0 on success
  */
-int canfd_send(const CANFD_Message* msg);
+int canfd_send(const struct canfd_frame* msg);
 
 /**
  * @brief receives CAN frame
@@ -63,7 +70,7 @@ int canfd_send(const CANFD_Message* msg);
  * @param timeout in ms
  * @return -1 on failure and 0 on success
  */
-int canfd_recieve(CANFD_Message* msg, int timout_ms);
+int canfd_recieve(struct canfd_frame* msg, int timout_ms);
 
 /**
  * @brief Closes CAN socket

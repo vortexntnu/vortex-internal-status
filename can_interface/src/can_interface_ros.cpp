@@ -1,4 +1,5 @@
 #include "can_interface_ros.hpp"
+#include <linux/can.h>
 #include <spdlog/common.h>
 #include <spdlog/spdlog.h>
 #include <array>
@@ -56,34 +57,34 @@ void CANInterface::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg) {
     pwm_values[0] = joy_to_pwm(pwm_idle_, pwm_gain_, shoulder_value);
     pwm_values[1] = joy_to_pwm(pwm_idle_, pwm_gain_, wrist_value);
     pwm_values[2] = joy_to_pwm(pwm_idle_, pwm_gain_, grip_value);
-
-    canMsg.id = SET_GRIPPER_PWM;
-    canMsg.is_extended = false;
-    canMsg.is_fd = true;
+    
+    struct canfd_frame frame;
+    
+    frame.can_id = SET_GRIPPER_PWM;
 
     for (size_t i = 0; i < 3; i++) {
-        canMsg.data[2 * i] = static_cast<uint8_t>((pwm_values[i] >> 8) & 0xFF);
-        canMsg.data[2 * i + 1] = static_cast<uint8_t>(pwm_values[i] & 0xFF);
+        frame.data[2 * i] = static_cast<uint8_t>((pwm_values[i] >> 8) & 0xFF);
+        frame.data[2 * i + 1] = static_cast<uint8_t>(pwm_values[i] & 0xFF);
     }
 
-    canMsg.length = pwm_values.size() * 2;
+    frame.len = pwm_values.size() * 2;
 
     std_msgs::msg::Int16MultiArray pwm_msg = array_to_msg(pwm_values);
     pwm_pub_->publish(pwm_msg);
 
-    canfd_send(&canMsg);
+    canfd_send(&frame);
 
     if (msg->buttons[0]) {
-        canMsg.id = STOP_GRIPPER;
-        canMsg.data[0] = 0;
-        canMsg.length = 1;
-        canfd_send(&canMsg);
+        frame.can_id = STOP_GRIPPER;
+        frame.data[0] = 0;
+        frame.len = 1;
+        canfd_send(&frame);
 
     } else if (msg->buttons[1]) {
-        canMsg.id = START_GRIPPER;
-        canMsg.data[0] = 0;
-        canMsg.length = 1;
-        canfd_send(&canMsg);
+        frame.can_id = START_GRIPPER;
+        frame.data[0] = 0;
+        frame.len = 1;
+        canfd_send(&frame);
     }
 }
 
@@ -95,7 +96,7 @@ std_msgs::msg::Int16MultiArray CANInterface::array_to_msg(
 }
 void CANInterface::can_receive_loop() {
     while (running_) {
-        CANFD_Message msg;
+        struct canfd_frame msg;
         int ret = canfd_recieve(&msg, 1000);
         if (ret == 0) {
             on_can_message(msg);
@@ -103,8 +104,8 @@ void CANInterface::can_receive_loop() {
     }
 }
 
-void CANInterface::on_can_message(const CANFD_Message& msg) {
-    switch (msg.id) {
+void CANInterface::on_can_message(const struct canfd_frame& msg) {
+    switch (msg.can_id) {
         case ENCODER_ANGLES:
             encoder_angles_handler(msg, joint_state_pub_, this->get_clock());
             break;

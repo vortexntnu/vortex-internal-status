@@ -1,6 +1,7 @@
 #ifndef CAN_INTERFACE_HPP
 #define CAN_INTERFACE_HPP
 
+#include <linux/can.h>
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <atomic>
@@ -40,7 +41,7 @@ class CANInterface : public rclcpp::Node {
     void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);
 
     void can_receive_loop();
-    void on_can_message(const CANFD_Message& msg);
+    void on_can_message(const struct canfd_frame& msg);
     /**
      * @brief Convert a vector of PWM values to a ROS message.
      * @param vec The vector of PWM values.
@@ -57,8 +58,6 @@ class CANInterface : public rclcpp::Node {
     std::string can_interface_;
     std::thread can_thread_;
     bool running_;
-
-    CANFD_Message canMsg;
 
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
