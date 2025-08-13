@@ -1,22 +1,4 @@
 #include "can_interface_driver.h"
-#include <errno.h>
-#include <fcntl.h>
-#include <linux/can.h>
-#include <linux/can/bcm.h>
-#include <linux/can/error.h>
-#include <linux/can/gw.h>
-#include <linux/can/isotp.h>
-#include <linux/can/j1939.h>
-#include <linux/can/netlink.h>
-#include <linux/can/raw.h>
-#include <net/if.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 static int sock = -1;
 

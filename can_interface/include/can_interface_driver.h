@@ -1,11 +1,7 @@
 #ifndef CAN_INTERFACE_DRIVER_H
 #define CAN_INTERFACE_DRIVER_H
 
-#ifdef __cplusplus
 
-extern "C" {
-
-#endif
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -27,6 +23,13 @@ extern "C" {
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+#ifdef __cplusplus
+
+extern "C" {
+
+#endif
+
 
 /*Enum containing the different CAN receive ID */
 typedef enum {
