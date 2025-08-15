@@ -5,6 +5,7 @@ static int sock = -1;
 int canfd_init(const char* interface) {
     struct sockaddr_can addr;
     struct ifreq ifr;
+    int enable_fd = 1;
 
     sock = socket(PF_CAN, SOCK_RAW, CAN_RAW);
     if (sock < 0) {
@@ -12,7 +13,12 @@ int canfd_init(const char* interface) {
         return -1;
     }
 
+    memset(&ifr, 0,sizeof(ifr));
+    memset(&addr, 0,sizeof(addr));
+
     strncpy(ifr.ifr_name, interface, IFNAMSIZ - 1);
+    ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+
     if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0) {
         perror("Error getting CAN interface index");
         close(sock);
@@ -26,6 +32,10 @@ int canfd_init(const char* interface) {
         perror("Error binding CAN socket");
         close(sock);
         return -1;
+    }
+
+    if (setsockopt(sock, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &enable_fd, sizeof(enable_fd)) < 0) {
+        perror("setsockopt(CAN_RAW_FD_FRAMES)");
     }
 
     return 0;
@@ -43,7 +53,6 @@ void set_can_filter(uint16_t start_id, uint16_t id_mask) {
 }
 
 int canfd_send(const struct canfd_frame* frame) {
-
     if (write(sock, frame, sizeof(*frame)) != sizeof(*frame)) {
         perror("Error sending CAN FD message");
         return -1;
