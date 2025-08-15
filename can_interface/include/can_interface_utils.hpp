@@ -1,6 +1,7 @@
 #ifndef CAN_INTERFACE_UTILS_HPP
 #define CAN_INTERFACE_UTILS_HPP
 
+#include <sys/types.h>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -14,10 +15,12 @@ static constexpr std::uint16_t joy_to_pwm(std::uint16_t pwm_idle,
     return static_cast<std::uint16_t>(pwm_idle + pwm_gain * joy_value);
 }
 
-static constexpr std::array<std::uint8_t, 2> pwm_to_can_data(
-    std::uint16_t pwm) {
-    return {static_cast<std::uint8_t>((pwm >> 8) & 0xFF),
-            static_cast<std::uint8_t>(pwm & 0xFF)};
+
+static constexpr void pwm_to_can_data(std::uint8_t* can_data, std::array<uint16_t, 3> pwm_values){
+    for (size_t i = 0; i < 3; i++) {
+        can_data[2 * i] = static_cast<uint8_t>((pwm_values[i] >> 8) & 0xFF);
+        can_data[2 * i + 1] = static_cast<uint8_t>(pwm_values[i] & 0xFF);
+    }
 }
 
 static constexpr double raw_angle_to_radians(std::uint16_t raw_angle) {

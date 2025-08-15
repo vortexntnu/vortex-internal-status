@@ -62,10 +62,7 @@ void CANInterface::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg) {
     
     frame.can_id = SET_GRIPPER_PWM;
 
-    for (size_t i = 0; i < 3; i++) {
-        frame.data[2 * i] = static_cast<uint8_t>((pwm_values[i] >> 8) & 0xFF);
-        frame.data[2 * i + 1] = static_cast<uint8_t>(pwm_values[i] & 0xFF);
-    }
+    pwm_to_can_data(frame.data, pwm_values);
 
     frame.len = pwm_values.size() * 2;
 
