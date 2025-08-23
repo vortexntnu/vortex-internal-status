@@ -58,6 +58,7 @@ class CANInterface : public rclcpp::Node {
     std::string can_interface_;
     std::thread can_thread_;
     bool running_;
+    int sock;
 
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;

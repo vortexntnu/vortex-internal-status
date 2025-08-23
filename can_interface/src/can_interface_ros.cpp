@@ -21,7 +21,7 @@ CANInterface::CANInterface() : Node("can_interface_node") {
     can_thread_ = std::thread(&CANInterface::can_receive_loop, this);
 
     last_msg_time_ = this->now();
-    canfd_init(can_interface_.c_str());
+    canfd_init(&sock, can_interface_.c_str());
     spdlog::info("CAN interface node started");
 }
 CANInterface::~CANInterface() {
@@ -69,19 +69,19 @@ void CANInterface::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg) {
     std_msgs::msg::Int16MultiArray pwm_msg = array_to_msg(pwm_values);
     pwm_pub_->publish(pwm_msg);
 
-    canfd_send(&frame);
+    canfd_send(sock, &frame);
 
     if (msg->buttons[0]) {
         frame.can_id = STOP_GRIPPER;
         frame.data[0] = 0;
         frame.len = 1;
-        canfd_send(&frame);
+        canfd_send(sock, &frame);
 
     } else if (msg->buttons[1]) {
         frame.can_id = START_GRIPPER;
         frame.data[0] = 0;
         frame.len = 1;
-        canfd_send(&frame);
+        canfd_send(sock, &frame);
     }
 }
 
@@ -94,7 +94,7 @@ std_msgs::msg::Int16MultiArray CANInterface::array_to_msg(
 void CANInterface::can_receive_loop() {
     while (running_) {
         struct canfd_frame msg;
-        int ret = canfd_recieve(&msg, 1000);
+        int ret = canfd_recieve(sock, &msg, 1000);
         if (ret == 0) {
             on_can_message(msg);
         }
