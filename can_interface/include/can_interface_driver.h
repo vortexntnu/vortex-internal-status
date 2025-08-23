@@ -56,16 +56,17 @@ typedef enum {
 
 /**
  * @brief Initializes CAN socket
+ * @param pointer to int containing sock value
  * @param CAN interface
  * @return -1 on failure and 0 on success
  */
-int canfd_init(const char* interface);
+int canfd_init(int* sock, const char* interface);
 /**
  * @brief send CAN frame
  * @param pointer to CAN message
  * @return -1 on failure and 0 on success
  */
-int canfd_send(const struct canfd_frame* msg);
+int canfd_send(int sock, const struct canfd_frame* msg);
 
 /**
  * @brief receives CAN frame
@@ -73,19 +74,19 @@ int canfd_send(const struct canfd_frame* msg);
  * @param timeout in ms
  * @return -1 on failure and 0 on success
  */
-int canfd_recieve(struct canfd_frame* msg, int timout_ms);
+int canfd_recieve(int sock, struct canfd_frame* msg, int timout_ms);
 
 /**
  * @brief Closes CAN socket
  */
-void canfd_close();
+void canfd_close(int sock);
 
 /**
  * @brief Sets CAN id filtering
  * @param start_id
  * @param id mask
  */
-void set_can_filter(uint16_t start_id, uint16_t id_mask);
+void set_can_filter(int sock, uint16_t start_id, uint16_t id_mask);
 
 #ifdef __cplusplus
 }

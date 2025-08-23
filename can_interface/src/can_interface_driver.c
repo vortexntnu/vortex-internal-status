@@ -1,13 +1,11 @@
 #include "can_interface_driver.h"
 
-static int sock = -1;
 
-int canfd_init(const char* interface) {
+int canfd_init(int* sock, const char* interface) {
     struct sockaddr_can addr;
     struct ifreq ifr;
-    int enable_fd = 1;
 
-    sock = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+    *sock = socket(PF_CAN, SOCK_RAW, CAN_RAW);
     if (sock < 0) {
         perror("Error creating CAN socket");
         return -1;
@@ -19,29 +17,30 @@ int canfd_init(const char* interface) {
     strncpy(ifr.ifr_name, interface, IFNAMSIZ - 1);
     ifr.ifr_name[IFNAMSIZ - 1] = '\0';
 
-    if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0) {
+    if (ioctl(*sock, SIOCGIFINDEX, &ifr) < 0) {
         perror("Error getting CAN interface index");
-        close(sock);
+        close(*sock);
         return -1;
     }
 
     addr.can_family = AF_CAN;
     addr.can_ifindex = ifr.ifr_ifindex;
 
-    if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+    if (bind(*sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         perror("Error binding CAN socket");
-        close(sock);
+        close(*sock);
         return -1;
     }
 
-    if (setsockopt(sock, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &enable_fd, sizeof(enable_fd)) < 0) {
+    int enable_fd = 1;
+    if (setsockopt(*sock, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &enable_fd, sizeof(enable_fd)) < 0) {
         perror("setsockopt(CAN_RAW_FD_FRAMES)");
     }
 
     return 0;
 }
 
-void set_can_filter(uint16_t start_id, uint16_t id_mask) {
+void set_can_filter(int sock, uint16_t start_id, uint16_t id_mask) {
     struct can_filter filter[1];
     filter[0].can_id = start_id;
     filter[0].can_mask = id_mask;
@@ -52,7 +51,7 @@ void set_can_filter(uint16_t start_id, uint16_t id_mask) {
     }
 }
 
-int canfd_send(const struct canfd_frame* frame) {
+int canfd_send(int sock, const struct canfd_frame* frame) {
     if (write(sock, frame, sizeof(*frame)) != sizeof(*frame)) {
         perror("Error sending CAN FD message");
         return -1;
@@ -61,7 +60,7 @@ int canfd_send(const struct canfd_frame* frame) {
     return 0;
 }
 
-int canfd_recieve(struct canfd_frame* msg, int timeout_ms) {
+int canfd_recieve(int sock, struct canfd_frame* msg, int timeout_ms) {
     struct timeval timeout;
     fd_set read_fds;
 
@@ -87,7 +86,7 @@ int canfd_recieve(struct canfd_frame* msg, int timeout_ms) {
     return 0;
 }
 
-void canfd_close() {
+void canfd_close(int sock) {
     if (sock >= 0) {
         close(sock);
         sock = -1;
