@@ -6,7 +6,7 @@ int canfd_init(int* sock, const char* interface) {
     struct ifreq ifr;
 
     *sock = socket(PF_CAN, SOCK_RAW, CAN_RAW);
-    if (sock < 0) {
+    if (*sock < 0) {
         perror("Error creating CAN socket");
         return -1;
     }
