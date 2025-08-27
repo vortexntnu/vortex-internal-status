@@ -1,10 +1,6 @@
 #ifndef CAN_INTERFACE_DRIVER_H
 #define CAN_INTERFACE_DRIVER_H
 
-
-
-#include <stdbool.h>
-#include <stdint.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/can.h>
@@ -16,6 +12,7 @@
 #include <linux/can/netlink.h>
 #include <linux/can/raw.h>
 #include <net/if.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,11 +22,8 @@
 #include <unistd.h>
 
 #ifdef __cplusplus
-
 extern "C" {
-
 #endif
-
 
 /*Enum containing the different CAN receive ID */
 typedef enum {
@@ -56,30 +50,34 @@ typedef enum {
 
 /**
  * @brief Initializes CAN socket
- * @param pointer to int containing sock value
- * @param CAN interface
+ * @param sock pointer sock value
+ * @param interface char pointer to CAN interface
  * @return -1 on failure and 0 on success
  */
 int canfd_init(int* sock, const char* interface);
 /**
  * @brief send CAN frame
- * @param pointer to CAN message
+ * @param sock sock value
+ * @param msg pointer to CAN message
  * @return -1 on failure and 0 on success
  */
 int canfd_send(int sock, const struct canfd_frame* msg);
 
 /**
  * @brief receives CAN frame
- * @param pointer to CAN message
- * @param timeout in ms
- * @return -1 on failure and 0 on success
+ * @param sock sock value
+ * @param msg pointer to CAN message
+ * @param timout_ms timeout in ms
+ * @return -1 on failure
+ *          0 on success
  */
 int canfd_recieve(int sock, struct canfd_frame* msg, int timout_ms);
 
 /**
  * @brief Closes CAN socket
+ * @param sock pointer to sock variable
  */
-void canfd_close(int sock);
+void canfd_close(int* sock);
 
 /**
  * @brief Sets CAN id filtering
@@ -90,7 +88,6 @@ void set_can_filter(int sock, uint16_t start_id, uint16_t id_mask);
 
 #ifdef __cplusplus
 }
-
 #endif
 
 #endif  // !CAN_INTERFACE_DRIVER_H

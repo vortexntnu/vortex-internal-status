@@ -86,9 +86,9 @@ int canfd_recieve(int sock, struct canfd_frame* msg, int timeout_ms) {
     return 0;
 }
 
-void canfd_close(int sock) {
-    if (sock >= 0) {
-        close(sock);
-        sock = -1;
+void canfd_close(int* sock) {
+    if (*sock >= 0) {
+        close(*sock);
+        *sock = -1;
     }
 }
