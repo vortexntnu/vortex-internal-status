@@ -4,7 +4,8 @@
 
 PSMOrinNode::PSMOrinNode() : Node("psm_orin_node") {
     set_subscribers_and_publishers();
-    i2c_init();
+    i2c_init(&psm_bus_fd, PSM_ADDRESS);
+    i2c_init(&pressure_fd, MPRLS_ADDRESS);
 
     read_psm_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(500),
@@ -49,7 +50,7 @@ void PSMOrinNode::read_ads_callback() {
     //     return;
     // }
 
-    if (read_telemetry(&voltage, &current)) {
+    if (read_psm_measurements(psm_bus_fd,&voltage, &current)) {
         return;
     }
 
@@ -64,7 +65,7 @@ void PSMOrinNode::read_ads_callback() {
 }
 
 void PSMOrinNode::read_pressure_callback() {
-    if (read_pressure(&pressure)) {
+    if (read_pressure(pressure_fd, &pressure)) {
         return;
     }
 

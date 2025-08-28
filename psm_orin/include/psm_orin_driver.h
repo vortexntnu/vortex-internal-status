@@ -56,33 +56,40 @@ extern "C" {
 
 /**
  *@brief i2c initialize
- *@param none
- *@return -1 if fails and 0 on success
+ *@param bus_fd pointer to socket fd
+ *@param address PSM address
+ *@return -1 on fail
+           0 on success
  */
-int i2c_init();
+int i2c_init(int* bus_fd, uint8_t address);
 
 /**
  *@brief Reads current and voltage for the PSM
- *@param pointer to double holding voltage
- *@param pointer to double holding current
+ *@param voltage pointer to double holding voltage
+ *@param current pointer to double holding current
  *@return -1 on failure and 0 on success
  */
-int read_psm_measurements(double* voltage, double* current);
+int read_psm_measurements(int bus_fd, double* voltage, double* current);
 
 /**
  *@brief Reads current and voltage for the MPRLS
- *@param pointer to double holding pressure
+ *@param pressure pointer to double holding pressure
  *@return -1 on failure and 0 on success
  */
-int read_pressure(double* pressure);
+int read_pressure(int bus_fd, double* pressure);
 
 /**
  *@brief Reads current and voltage for the PSM
- *@param pointer to double holding voltage
- *@param pointer to double holding current
+ *@param voltage pointer to double holding voltage
+ *@param current pointer to double holding current
  *@return -1 on failure and 0 on success
  */
-int read_telemetry(double* voltage, double* current);
+int read_telemetry(int bus_fd, double* voltage, double* current);
+/**
+ *@brief closes i2c socket
+ *@param bus_fd pointer to socket fd
+ */
+void i2c_close(int* bus_fd);
 
 #ifdef __cplusplus
 }

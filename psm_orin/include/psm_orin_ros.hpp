@@ -32,6 +32,9 @@ class PSMOrinNode : public rclcpp::Node {
     double voltage = 0.0;
     double current = 0.0;
     double pressure = 0.0;
+
+    int psm_bus_fd = -1;
+    int pressure_fd = -1;
 };
 
 #endif  // PSM_ORIN_ROS_HPP
