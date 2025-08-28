@@ -1,7 +1,4 @@
 #include "psm_orin_driver.h"
-#include <stdint.h>
-#include <unistd.h>
-
 
 static int i2c_write(int bus_fd,
                      uint8_t* data,
@@ -89,8 +86,7 @@ int read_psm_measurements(int bus_fd, double* voltage, double* current) {
     if (i2c_write_read(bus_fd, &reg_conv, 1, i2c_data, 2, PSM_ADDRESS))
         return -1;
     int16_t raw_voltage = (int16_t)((i2c_data[0] << 8) | i2c_data[1]);
-    *voltage =
-        ((raw_voltage * VOLTAGE_RANGE) / 32768.0) * VOLTAGE_SCALE + DIODE_LOSS;
+    calculate_voltage(voltage, raw_voltage);
 
     config = default_config;
     config &= ~0x7000;
@@ -102,9 +98,9 @@ int read_psm_measurements(int bus_fd, double* voltage, double* current) {
 
     if (i2c_write_read(bus_fd, &reg_conv, 1, i2c_data, 2, PSM_ADDRESS))
         return -1;
+
     int16_t raw_current = (int16_t)((i2c_data[0] << 8) | i2c_data[1]);
-    *current = (CURRENT_OFFSET - ((raw_current * VOLTAGE_RANGE) / 32768.0)) /
-               CURRENT_SENSITIVITY;
+    calculate_current(current, raw_current);
     return 0;
 }
 
@@ -116,12 +112,10 @@ int read_telemetry(int bus_fd, double* voltage, double* current) {
     }
 
     int16_t raw_voltage = (int16_t)((i2c_data[0] << 8) | i2c_data[1]);
-    *voltage =
-        ((raw_voltage * VOLTAGE_RANGE) / 32768.0) * VOLTAGE_SCALE + DIODE_LOSS;
+    calculate_voltage(voltage, raw_voltage);
 
     int16_t raw_current = (int16_t)((i2c_data[2] << 8) | i2c_data[3]);
-    *current = (CURRENT_OFFSET - ((raw_current * VOLTAGE_RANGE) / 32768.0)) /
-               CURRENT_SENSITIVITY;
+    calculate_current(current, raw_current);
     return 0;
 }
 
@@ -129,15 +123,12 @@ int read_pressure(int bus_fd, double* pressure) {
     uint8_t write_data[3] = {MPRLS_REG, 0, 0};
     uint8_t i2c_data[4];
 
-    if (i2c_write_read(bus_fd,write_data, 3, i2c_data, 4, MPRLS_ADDRESS)) {
+    if (i2c_write_read(bus_fd, write_data, 3, i2c_data, 4, MPRLS_ADDRESS)) {
         return -1;
     }
     // uint8_t status = i2c_data[0];
     int32_t pressure_counts =
         (int32_t)((i2c_data[1] << 16) | (i2c_data[2] << 8) | i2c_data[3]);
-    double scale =
-        (PRESSURE_MAX - PRESSURE_MIN) / (double)(COUNTS_MAX - COUNTS_MIN);
-    *pressure = (pressure_counts - COUNTS_MIN) * scale + PRESSURE_MIN;
-
+    calculate_pressure(pressure, pressure_counts);
     return 0;
 }

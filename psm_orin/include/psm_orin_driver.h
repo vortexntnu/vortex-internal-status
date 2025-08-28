@@ -91,6 +91,23 @@ int read_telemetry(int bus_fd, double* voltage, double* current);
  */
 void i2c_close(int* bus_fd);
 
+static inline void calculate_voltage(double* voltage, int16_t raw_voltage) {
+    *voltage =
+        ((raw_voltage * VOLTAGE_RANGE) / 32768.0) * VOLTAGE_SCALE + DIODE_LOSS;
+}
+
+static inline void calculate_current(double* current, int16_t raw_current) {
+    *current = (CURRENT_OFFSET - ((raw_current * VOLTAGE_RANGE) / 32768.0)) /
+               CURRENT_SENSITIVITY;
+}
+
+static inline void calculate_pressure(double* pressure,
+                                      int32_t pressure_counts) {
+    double scale =
+        (PRESSURE_MAX - PRESSURE_MIN) / (double)(COUNTS_MAX - COUNTS_MIN);
+    *pressure = (pressure_counts - COUNTS_MIN) * scale + PRESSURE_MIN;
+}
+
 #ifdef __cplusplus
 }
 #endif  // __cplusplus
