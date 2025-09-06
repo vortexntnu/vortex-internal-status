@@ -46,7 +46,6 @@ void psm_handler(
     const struct canfd_frame& msg,
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr voltage_pub_,
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr current_pub_) {
-
     double current, voltage;
     psm_unit_conversion(msg.data, current, voltage);
 

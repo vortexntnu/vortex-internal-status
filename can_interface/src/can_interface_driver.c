@@ -1,6 +1,5 @@
 #include "can_interface_driver.h"
 
-
 int canfd_init(int* sock, const char* interface) {
     struct sockaddr_can addr;
     struct ifreq ifr;
@@ -11,8 +10,8 @@ int canfd_init(int* sock, const char* interface) {
         return -1;
     }
 
-    memset(&ifr, 0,sizeof(ifr));
-    memset(&addr, 0,sizeof(addr));
+    memset(&ifr, 0, sizeof(ifr));
+    memset(&addr, 0, sizeof(addr));
 
     strncpy(ifr.ifr_name, interface, IFNAMSIZ - 1);
     ifr.ifr_name[IFNAMSIZ - 1] = '\0';
@@ -33,7 +32,8 @@ int canfd_init(int* sock, const char* interface) {
     }
 
     int enable_fd = 1;
-    if (setsockopt(*sock, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &enable_fd, sizeof(enable_fd)) < 0) {
+    if (setsockopt(*sock, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &enable_fd,
+                   sizeof(enable_fd)) < 0) {
         perror("setsockopt(CAN_RAW_FD_FRAMES)");
     }
 

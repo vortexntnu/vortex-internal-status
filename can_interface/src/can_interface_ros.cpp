@@ -57,9 +57,9 @@ void CANInterface::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg) {
     pwm_values[0] = joy_to_pwm(pwm_idle_, pwm_gain_, shoulder_value);
     pwm_values[1] = joy_to_pwm(pwm_idle_, pwm_gain_, wrist_value);
     pwm_values[2] = joy_to_pwm(pwm_idle_, pwm_gain_, grip_value);
-    
+
     struct canfd_frame frame;
-    
+
     frame.can_id = SET_GRIPPER_PWM;
 
     pwm_to_can_data(frame.data, pwm_values);

@@ -15,8 +15,8 @@ static constexpr std::uint16_t joy_to_pwm(std::uint16_t pwm_idle,
     return static_cast<std::uint16_t>(pwm_idle + pwm_gain * joy_value);
 }
 
-
-static constexpr void pwm_to_can_data(std::uint8_t* can_data, std::array<uint16_t, 3> pwm_values){
+static constexpr void pwm_to_can_data(std::uint8_t* can_data,
+                                      std::array<uint16_t, 3> pwm_values) {
     for (size_t i = 0; i < 3; i++) {
         can_data[2 * i] = static_cast<uint8_t>((pwm_values[i] >> 8) & 0xFF);
         can_data[2 * i + 1] = static_cast<uint8_t>(pwm_values[i] & 0xFF);

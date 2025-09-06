@@ -11,14 +11,14 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <sensor_msgs/msg/joy.hpp>
-#include <std_msgs/msg/int16_multi_array.hpp>
 #include <std_msgs/msg/float64.hpp>
+#include <std_msgs/msg/int16_multi_array.hpp>
 #include <string>
 #include <thread>
 #include <vector>
 #include "can_interface_driver.h"
-#include "can_interface_utils.hpp"
 #include "can_interface_message_handler.hpp"
+#include "can_interface_utils.hpp"
 
 class CANInterface : public rclcpp::Node {
    public:

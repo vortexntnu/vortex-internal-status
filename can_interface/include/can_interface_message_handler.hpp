@@ -11,8 +11,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <sensor_msgs/msg/joy.hpp>
-#include <std_msgs/msg/int16_multi_array.hpp>
 #include <std_msgs/msg/float64.hpp>
+#include <std_msgs/msg/int16_multi_array.hpp>
 #include <string>
 #include <thread>
 #include <vector>
@@ -23,6 +23,7 @@ void encoder_angles_handler(
     const struct canfd_frame& msg,
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub,
     rclcpp::Clock::SharedPtr clock);
+
 void pressure_handler(const struct canfd_frame& msg);
 void temp_handler(const struct canfd_frame& msg);
 
