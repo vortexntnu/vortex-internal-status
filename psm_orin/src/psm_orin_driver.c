@@ -67,7 +67,7 @@ void i2c_close(int* bus_fd) {
 }
 
 int read_psm_measurements(int bus_fd, double* voltage, double* current) {
-    static uint16_t default_config =
+    static const uint16_t default_config =
         CFG_OS_SINGLE | CFG_MUX_DIFF_0_1 | CFG_PGA_6_144V | CFG_MODE_SINGLE |
         CFG_DR_128SPS | CFG_COMP_MODE | CFG_COMP_POL | CFG_COMP_LAT |
         CFG_COMP_QUE_DIS;
