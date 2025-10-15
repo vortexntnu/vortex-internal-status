@@ -9,30 +9,39 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(serial_driver REQUIRED)
-#find_package(spdlog REQUIRED)
-#find_package(fmt REQUIRED)
+find_package(io_context REQUIRED)
 
 include_directories(include)
 
-add_executable(am_node
-  src/am_driver.cpp
-  src/am_ros.cpp
-)
+#set(LIB_NAME ${PROJECT_NAME})
+
+add_library(${PROJECT_NAME} SHARED
+  src/am_driver.cpp)
 
 
-ament_target_dependencies(am_node
+ament_target_dependencies(${PROJECT_NAME}
   rclcpp
   std_msgs
+  serial_driver
+  io_context
+)
+
+# Install library and headers
+install(
+  TARGETS ${PROJECT_NAME}
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
 
 #target_link_libraries()
 
-install(TARGETS
-am_node
-DESTINATION lib/${PROJECT_NAME}
-)
-
+#install(TARGETS
+#am_node
+#DESTINATION lib/${PROJECT_NAME}
+#)
 
 
 install(
@@ -40,10 +49,5 @@ install(
   DESTINATION include
 )
 
-install(DIRECTORY
-  launch
-  config
-  DESTINATION share/${PROJECT_NAME}/
-)
 
 ament_package()
