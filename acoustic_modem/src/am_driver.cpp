@@ -40,40 +40,108 @@ AcousticModemDriver::AcousticModemDriver(std::string& device,int baudrate,int ch
 
 
 AcousticModemDriver::~AcousticModemDriver(){
-  // TODO
-  return;
+  // TODO: add verifications?
+  port_->close();
+}
+
+int AcousticModemDriver::send_data(std::string data){
+  // send data using serial driver's send(msg)
+  std::vector<uint8_t> msg(data.begin(), data.end());
+  int bytes=port_->send(msg);
+  return bytes;
+}
+
+// overload send_data(char)
+int AcousticModemDriver::send_data(char data){
+  // send data using serial driver's send(msg)
+  std::vector<uint8_t> msg = { static_cast<uint8_t>(data) };
+  int bytes=port_->send(msg);
+  return bytes;
 }
 
 int AcousticModemDriver::send_two_bytes(std::string data){
-  // TODO
-  return 0;
+  // only send 2 bytes waiting 1 second after sending them
+  if(data.length()!=2){
+    return 0;
+  }else{
+    int bytes=this->send_data(data);
+
+    // 10bps
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    return bytes;
+  }
 }
 
 int AcousticModemDriver::send_msg(std::string data, float timeout){
-  // TODO
-  return 0;
+  // TODO: implement in diagnostic mode, if needed
+
+  int  sum_sent_char=0;
+
+  if(data.length()%2 != 0){
+    data+=' ';
+  }
+  for(int i=0; i<data.length();i+=2){
+    std::string chunk=data.substr(i,2);
+    int sent_chunk=this->send_two_bytes(chunk);
+    if(sent_chunk!=0){
+      sum_sent_char+=sent_chunk;
+    }
+    // wait for transmission
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+  }
+  return sum_sent_char;
 }
 
 // to set channel of communication
 bool AcousticModemDriver::set_channel(int channel){
-  // TODO
-  return false;
+  // TODO: check that channel is a number between 1 and 12 and return false if not
+
+  // wait 1 sec between c and c to go in command mode
+  this->send_data('c');
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  this->send_data('c');
+
+  switch (channel)
+  {
+  case 10:
+    this->send_data('a');
+    break;  
+  case 11:
+    this->send_data('b');
+    break;
+  case 12:
+    this->send_data('c');
+    break;
+  default:
+    this->send_data(std::to_string(channel));
+    break;
+  }
+  channel_=channel;
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  return true;
 }
 
 // to set power level
 bool AcousticModemDriver::set_level(int level){
-  // TODO
-  return false;
+  // TODO: check level and return False
+
+  this->send_data('l');
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  this->send_data('l');
+
+  this->send_data(std::to_string(level));
+  level_=level;
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  return true;
 }
 
-// to set diagnostic mode
+// to set diagnostic mode?
 bool AcousticModemDriver::set_diagnostic_mode(bool diagnostic){
   // TODO
   return false;
 }
 
 void AcousticModemDriver::close(){
-  // TODO
-  return;
+  port_->close();
 }  
 

@@ -3,6 +3,7 @@
 
 #include<string>
 #include<iostream>
+#include<chrono>
 #include <io_context/io_context.hpp>
 #include <serial_driver/serial_driver.hpp>
 #include <serial_driver/serial_port.hpp>
@@ -25,6 +26,30 @@ class AcousticModemDriver{
             diagnostic (bool): If True, set the modem to diagnostic mode; if False, set transparent mode, (default 1).
     **/
     AcousticModemDriver(std::string& device,int baudrate=9600,int channel=1,int level=4,bool diagnostic=false,float timeout=default_timeout);
+
+
+
+    /**
+        Send ASCII data to the modem.
+        
+        Parameters:
+            data (str): The data to be sent.
+
+        Returns: 
+            int: Number of characters written.
+    **/
+    int send_data(std::string data);
+
+/**
+        Send ASCII data to the modem.
+        
+        Parameters:
+            data (char): The data to be sent.
+
+        Returns: 
+            int: Number of characters written.
+    **/
+    int send_data(char data);
 
 
     /**
