@@ -4,10 +4,35 @@
 #include<string>
 #include<iostream>
 #include<chrono>
+#include<vector>
 #include <io_context/io_context.hpp>
 #include <serial_driver/serial_driver.hpp>
 #include <serial_driver/serial_port.hpp>
 
+
+struct PacketHeader{
+    uint8_t type : 2;
+    uint8_t order : 3;
+    uint8_t last : 1;
+};
+
+struct DiagnosticData {
+    uint8_t TR_BLOCK[2];
+    uint8_t BER;
+    uint8_t SIGNAL_POWER;
+    uint8_t NOISE_POWER;
+    uint8_t PACKET_VALID[2];
+    uint8_t PACKET_INVALID;
+    uint8_t GIT_REV;
+    uint8_t TIME[3];
+    uint8_t CHIP_ID[2];
+    uint8_t HW_REV : 2;
+    uint8_t CHANNEL : 4;
+    uint8_t TB_VALID : 1;
+    uint8_t TX_COMPLETE :1;
+    uint8_t DIAGNOSTIC_MODE : 1;
+    uint8_t LEVEL : 2;
+};
 
 class AcousticModemDriver{
     /**
@@ -76,6 +101,15 @@ class AcousticModemDriver{
     */
     int send_msg(std::string data, float timeout=default_timeout);
 
+
+    /**
+    Read data from the serial port and search for a valid diagnostic packet.
+    A valid packet starts with '$' (0x24) and ends with '\\n' (0x0A) and is exactly 18 bytes long.
+    
+    Returns:
+        Optional[bytes]: The valid packet if found, otherwise the buffer if it is not empty.
+     */
+
     
 
     // to set channel of communication
@@ -86,6 +120,22 @@ class AcousticModemDriver{
 
     // to set diagnostic mode
     bool set_diagnostic_mode(bool diagnostic);
+
+    /**
+    Decode a diagnostic packet received from the modem.
+        
+    The packet should be 18 bytes long, starting with '$' (0x24) and ending with '\\n' (0x0A).
+    The bytes between contain the data in the following format:
+        - Byte 0: '$'
+        - Bytes 1-16: Data fields (see modem documentation)
+        - Byte 17: '\\n'
+    
+    Returns:
+        Optional[Dict[str, Any]]: A dictionary of decoded values if the packet is valid,
+        otherwise None.
+     */
+
+    std::optional<DiagnosticData> decode_packet(std::vector<uint8_t>& packet);
 
     /**
         Close the serial connection.

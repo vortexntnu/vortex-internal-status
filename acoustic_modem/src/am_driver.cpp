@@ -141,6 +141,18 @@ bool AcousticModemDriver::set_diagnostic_mode(bool diagnostic){
   return false;
 }
 
+std::optional<DiagnosticData> decode_packet(const std::vector<uint8_t>& packet){
+  std::string packet_str(packet.begin(), packet.end());
+
+  if (packet_str.size()!=18 || packet_str.front()!='$' || packet_str.back()!='\n') {
+    return std::nullopt; 
+  }
+
+  std::vector<uint8_t> data_bytes(packet.begin()+1, packet.begin()+17);
+
+  // TODO
+}
+
 void AcousticModemDriver::close(){
   port_->close();
 }  
