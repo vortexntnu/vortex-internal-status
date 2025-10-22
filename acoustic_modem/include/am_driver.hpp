@@ -17,7 +17,7 @@ struct PacketHeader{
 };
 
 struct DiagnosticData {
-    uint8_t TR_BLOCK[2];
+    uint8_t TR_BLOCK[2];  // 6 bits will be used by the packet header
     uint8_t BER;
     uint8_t SIGNAL_POWER;
     uint8_t NOISE_POWER;
@@ -31,7 +31,7 @@ struct DiagnosticData {
     uint8_t TB_VALID : 1;
     uint8_t TX_COMPLETE :1;
     uint8_t DIAGNOSTIC_MODE : 1;
-    uint8_t LEVEL : 2;
+    uint8_t POWER_LEVEL : 2;
 };
 
 class AcousticModemDriver{
@@ -145,7 +145,7 @@ class AcousticModemDriver{
         otherwise None.
      */
 
-    //std::optional<DiagnosticData> decode_packet(std::vector<uint8_t>& packet);
+    DiagnosticData decode_packet(std::vector<uint8_t>& packet);
 
     /**
         Close the serial connection.
@@ -153,6 +153,22 @@ class AcousticModemDriver{
     void close();   
 
     private:
+
+    struct DiagnosticPacket{
+        uint16_t TR_BLOCK;
+        uint8_t BER;
+        uint8_t SIGNAL_POWER;
+        uint8_t NOISE_POWER;
+        uint16_t PACKET_VALID;
+        uint8_t PACKET_INVALID;
+        uint8_t GIT_REV;
+        uint8_t TIME_L;
+        uint8_t TIME_M;
+        uint8_t TIME_H;
+        uint16_t CHIP_ID;
+        uint8_t HW_CH_FLAGS;        // 14  (contains HW_REV, CHANNEL, TB_VALID, TX_COMPLETE)
+        uint8_t  MODE_LEVEL_FLAGS;  // 15 (contains DIAGNOSTIC_MODE, LEVEL)
+    };
 
     drivers::common::IoContext io_;
 
