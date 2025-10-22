@@ -141,7 +141,49 @@ bool AcousticModemDriver::set_diagnostic_mode(bool diagnostic){
   return false;
 }
 
-std::optional<DiagnosticData> decode_packet(const std::vector<uint8_t>& packet){
+std::vector<uint8_t> AcousticModemDriver::read_packet(){
+
+  // TODO: improve the code logic and structure, correct some errors
+
+  // time duration to wait for a valid packet
+  const auto time_duration=2s;
+  auto start_time=steady_clock::now();
+
+  std::vector<uint8_t> buffer(64);          // 64 can be modified, didn't put 18 to avoid cutting diagnostic packet in half
+
+  while((steady_clock::now() - start_time) < time_duration){
+    std::vector<uint8_t> temp_buffer(64);   // use this to store temporanealy buffer data, to add them to buffer
+    size_t bytes_read=port_->receive(temp_buffer);
+    temp_buffer.resize(bytes_read);         // resize the temp_buffer to the actual byte read
+    if(bytes_read>0){
+      buffer.insert(buffer.end(),temp_buffer.begin(),temp_buffer.end());
+
+      std::cout << "Buffer size: "<< bytes_read<< " bytes, " 
+                << "Buffer: "<< buffer << std::endl;
+
+      if(bytes_read>17){                    // look for diagnostic packet
+        auto begin = find(buffer.begin(), buffer.end(), '$'); // returns iterator 
+        auto end= find(buffer.begin(), buffer.end(), '\n');
+
+        if(begin!=buffer.end() && end!=buffer.end()) {  // create and return diagnostic packet
+          std::vector<uint8_t> packet(begin, end+1);
+          std::cout<<"Returning packet: "<< std::string str(packet.begin(), packet.end());<<std::endl;
+          return packet;
+        }
+      }
+    }
+
+    if(buffer.size()==0){
+      std::cout<<"Returning null";
+      return std::nullopt;
+    }else{
+      std::cout<<"Returning buffer: "<<buffer<<endl;
+      return buffer;
+    }
+  }
+}
+/** 
+std::optional<DiagnosticData> AcousticModemDriver::decode_packet(const std::vector<uint8_t>& packet){
   std::string packet_str(packet.begin(), packet.end());
 
   if (packet_str.size()!=18 || packet_str.front()!='$' || packet_str.back()!='\n') {
@@ -152,7 +194,7 @@ std::optional<DiagnosticData> decode_packet(const std::vector<uint8_t>& packet){
 
   // TODO
 }
-
+*/
 void AcousticModemDriver::close(){
   port_->close();
 }  

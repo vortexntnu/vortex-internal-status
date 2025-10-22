@@ -122,6 +122,16 @@ class AcousticModemDriver{
     bool set_diagnostic_mode(bool diagnostic);
 
     /**
+     * Read data from the serial port and search for a valid diagnostic packet.
+        A valid packet starts with '$' (0x24) and ends with '\\n' (0x0A) and is exactly 18 bytes long.
+        
+        Returns:
+            Optional[bytes]: The valid packet if found, otherwise the buffer if it is not empty.
+     */
+
+    std::vector<uint8_t> read_packet();
+
+    /**
     Decode a diagnostic packet received from the modem.
         
     The packet should be 18 bytes long, starting with '$' (0x24) and ending with '\\n' (0x0A).
@@ -131,11 +141,11 @@ class AcousticModemDriver{
         - Byte 17: '\\n'
     
     Returns:
-        Optional[Dict[str, Any]]: A dictionary of decoded values if the packet is valid,
+        TODO:Optional[Dict[str, Any]]: A dictionary of decoded values if the packet is valid,
         otherwise None.
      */
 
-    std::optional<DiagnosticData> decode_packet(std::vector<uint8_t>& packet);
+    //std::optional<DiagnosticData> decode_packet(std::vector<uint8_t>& packet);
 
     /**
         Close the serial connection.
