@@ -5,6 +5,7 @@
 #include<iostream>
 #include<chrono>
 #include<vector>
+#include<optional>
 #include <io_context/io_context.hpp>
 #include <serial_driver/serial_driver.hpp>
 #include <serial_driver/serial_port.hpp>
@@ -121,6 +122,38 @@ class AcousticModemDriver{
     // to set diagnostic mode
     bool set_diagnostic_mode(bool diagnostic);
 
+    
+    /**
+    Request a diagnostic report, decode it, update member varaibles from the report,
+    
+    TODO: and optionally save the report as a JSON file.
+    
+    This function sends the report request command and then listens for a valid packet
+    until overall_timeout seconds have elapsed.
+    
+    Parameters:
+        TODO: filename (str, optional): If provided, the report is saved to this file.
+        overall_timeout (float): Maximum time (in seconds) to wait for a valid report.
+    
+    Returns:
+        DiagnosticData: The decoded report if successful; otherwise, None.
+     */
+    std::optional<DiagnosticData> request_report(float overall_timeout=5.0f);
+
+
+    /**
+    Update internal state modem configuration
+    Parameters:
+        DiagnosticData report: Decoded report from the modem containing configuration info. 
+     */
+    void update_state_from_report(DiagnosticData report);
+    
+    /**
+    Request a diagnostic report from the modem.
+    */
+    void get_report();
+
+
     /**
      * Read data from the serial port and search for a valid diagnostic packet.
         A valid packet starts with '$' (0x24) and ends with '\\n' (0x0A) and is exactly 18 bytes long.
@@ -129,7 +162,7 @@ class AcousticModemDriver{
             Optional[bytes]: The valid packet if found, otherwise the buffer if it is not empty.
      */
 
-    std::vector<uint8_t> read_packet();
+    std::optional<std::vector<uint8_t>> read_packet();
 
     /**
     Decode a diagnostic packet received from the modem.
@@ -145,7 +178,7 @@ class AcousticModemDriver{
         otherwise None.
      */
 
-    DiagnosticData decode_packet(std::vector<uint8_t>& packet);
+    std::optional<DiagnosticData> decode_packet(std::vector<uint8_t>& packet);
 
     /**
         Close the serial connection.

@@ -1,6 +1,6 @@
 #include "am_driver.hpp"
 #include <utility>
-#include<optional>
+
 
 
 AcousticModemDriver::AcousticModemDriver(std::string& device,int baudrate,int channel,int level,bool diagnostic,float timeout)
@@ -15,8 +15,6 @@ AcousticModemDriver::AcousticModemDriver(std::string& device,int baudrate,int ch
       channel_(channel),
       level_(level)   
       {
-        // TODO: missing some verifications (port is really open, if device exists...)
-
         // initialization of the port in device_
         drv_.init_port(device_, cfg_);
 
@@ -25,6 +23,11 @@ AcousticModemDriver::AcousticModemDriver(std::string& device,int baudrate,int ch
 
         // actually open physical serial port
         port_->open();
+        
+        if(!(port_->is_open())){
+          std::cerr << "[Error] Serial port not open. Communication will not start." << std::endl;
+          return;
+        }
 
         this->set_channel(channel);
         this->set_level(level);
@@ -41,7 +44,6 @@ AcousticModemDriver::AcousticModemDriver(std::string& device,int baudrate,int ch
 
 
 AcousticModemDriver::~AcousticModemDriver(){
-  // TODO: add verifications?
   port_->close();
 }
 
@@ -95,8 +97,12 @@ int AcousticModemDriver::send_msg(std::string data, float timeout){
 
 // to set channel of communication
 bool AcousticModemDriver::set_channel(int channel){
-  // TODO: check that channel is a number between 1 and 12 and return false if not
-
+  // check channel is correct number
+  if(channel<1 || channel>12){
+    std::cout << "Warning: Channel " << channel 
+              << " is not a valid channel, needs to be between 1 and 12." << std::endl;
+    return false;
+  }
   // wait 1 sec between c and c to go in command mode
   this->send_data('c');
   std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -124,8 +130,11 @@ bool AcousticModemDriver::set_channel(int channel){
 
 // to set power level
 bool AcousticModemDriver::set_level(int level){
-  // TODO: check level and return False
-
+  if(level<1 || level>4){
+    std::cout << "Warning: Level " << level 
+              << " is not a valid Level, needs to be between 1 and 4." << std::endl;
+    return false;
+  }
   this->send_data('l');
   std::this_thread::sleep_for(std::chrono::seconds(1));
   this->send_data('l');
@@ -142,10 +151,53 @@ bool AcousticModemDriver::set_diagnostic_mode(bool diagnostic){
   return false;
 }
 
-std::vector<uint8_t> AcousticModemDriver::read_packet(){
+//TODO: don't like how optional is used, might change the std::nullopt
+std::optional<DiagnosticData> AcousticModemDriver::request_report(float overall_timeout){
+  this->get_report();
 
-  // TODO: improve the code logic and structure
+  std::optional<std::vector<uint8_t>> packet=this->read_packet();
+  if(!(packet.has_value())){
+    std::cout<<"Packet is empty"<< std::endl;
+    return std::nullopt;
+  }
+  std::vector<uint8_t> packet_cast=static_cast<std::vector<uint8_t>>(*packet);
+  std::cout<<"Returning packet of length: "<< std::string(packet_cast.begin(), packet_cast.end()).length()<<std::endl;
+  
+  std::optional<DiagnosticData> report=this->decode_packet(packet_cast);
+  if(!(report.has_value())){
+    std::cout<<"Failed to decode the packet."<< std::endl;
+    return std::nullopt;
+  }
+  DiagnosticData report_cast=static_cast<DiagnosticData>(*report);
+  this->update_state_from_report(report_cast);
+  
+  //TODO? implement saving report in json file
+  
+  return report;
 
+}
+
+void AcousticModemDriver::update_state_from_report(DiagnosticData report){
+  
+  this->channel_=static_cast<int>(report.CHANNEL);
+  this->level_=static_cast<int>(report.POWER_LEVEL);
+  //TODO: this->diagnostic
+
+  std::cout<<"Updated channel: "<<this->channel_
+           <<"Updated level: "<<this->level_<< std::endl;
+
+}
+
+void AcousticModemDriver::get_report(){
+  this->send_data('r');
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  this->send_data('r');
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+}
+
+
+
+std::optional<std::vector<uint8_t>> AcousticModemDriver::read_packet(){
   // time duration to wait for a valid packet
   const auto time_duration=std::chrono::seconds(2);
   auto start_time=std::chrono::steady_clock::now();
@@ -156,39 +208,43 @@ std::vector<uint8_t> AcousticModemDriver::read_packet(){
     std::vector<uint8_t> temp_buffer(64);   // use this to store temporanealy buffer data, to add them to buffer
     size_t bytes_read=port_->receive(temp_buffer);
     temp_buffer.resize(bytes_read);         // resize the temp_buffer to the actual byte read
-    if(bytes_read>0){
-      buffer.insert(buffer.end(),temp_buffer.begin(),temp_buffer.end());
+    
+    if(bytes_read==0){
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      continue;
+    }  
 
-      std::cout << "Buffer size: "<< bytes_read<< " bytes, " 
-                << "Buffer: "<< std::string(buffer.begin(), buffer.end())<< std::endl;
+    buffer.insert(buffer.end(),temp_buffer.begin(),temp_buffer.end());
 
-      if(bytes_read>17){                    // look for diagnostic packet
-        auto begin = find(buffer.begin(), buffer.end(), '$'); // returns iterator 
-        auto end= find(buffer.begin(), buffer.end(), '\n');
+    std::cout << "Buffer size: "<< bytes_read<< " bytes, " 
+              << "Buffer: "<< std::string(buffer.begin(), buffer.end())<< std::endl;
 
-        if(begin!=buffer.end() && end!=buffer.end()) {  // create and return diagnostic packet
-          std::vector<uint8_t> packet(begin, end+1);
-          std::cout<<"Returning packet: "<< std::string(packet.begin(), packet.end())<<std::endl;
-          return packet;
-        }
+    if(bytes_read>17){                    // look for diagnostic packet
+      auto begin = find(buffer.begin(), buffer.end(), '$'); // returns iterator 
+      auto end= find(buffer.begin(), buffer.end(), '\n');
+
+      if(begin!=buffer.end() && end!=buffer.end()) {  // create and return diagnostic packet
+        std::vector<uint8_t> packet(begin, end+1);
+        std::cout<<"Returning packet: "<< std::string(packet.begin(), packet.end())<<std::endl;
+        return packet;
       }
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   if(buffer.size()==0){
     std::cout<<"Returning no data";
-    return {};
+    return std::nullopt;
   }else{
     std::cout<< "Returning buffer: " <<std::string(buffer.begin(), buffer.end())<<std::endl;
     return buffer;
   }
 }
 
-DiagnosticData AcousticModemDriver::decode_packet(std::vector<uint8_t>& packet){
+std::optional<DiagnosticData> AcousticModemDriver::decode_packet(std::vector<uint8_t>& packet){
   std::string packet_str(packet.begin(), packet.end());
 
   if (packet_str.size()!=18 || packet_str.front()!='$' || packet_str.back()!='\n') { // check if the packet is 18 bytes with the start and end character
-    return {}; 
+    return std::nullopt; 
   }
 
   std::vector<uint8_t> data_bytes(packet.begin()+1, packet.begin()+17); // remove start and end character
