@@ -51,7 +51,7 @@ class AcousticModemDriver{
             level (int): Power level to set (valid values 1 to 4), (default 4).
             diagnostic (bool): If True, set the modem to diagnostic mode; if False, set transparent mode, (default 1).
     **/
-    AcousticModemDriver(std::string& device,int baudrate=9600,int channel=1,int level=4,bool diagnostic=false,float timeout=default_timeout);
+    AcousticModemDriver(std::string& device,int baudrate=9600,int channel=1,int level=4,bool diagnostic=false,float timeout=0.5f);
 
 
 
@@ -66,7 +66,7 @@ class AcousticModemDriver{
     **/
     int send_data(std::string data);
 
-/**
+    /**
         Send ASCII data to the modem.
         
         Parameters:
@@ -100,15 +100,15 @@ class AcousticModemDriver{
             timeout(float): Maximum time (in seconds) to wait for TX_COMPLETE
             after sending each 2-byte chunk.
     */
-    int send_msg(std::string data, float timeout=default_timeout);
+    int send_msg(std::string data, float timeout=5.0f);
 
 
     /**
-    Read data from the serial port and search for a valid diagnostic packet.
-    A valid packet starts with '$' (0x24) and ends with '\\n' (0x0A) and is exactly 18 bytes long.
-    
-    Returns:
-        Optional[bytes]: The valid packet if found, otherwise the buffer if it is not empty.
+        Read data from the serial port and search for a valid diagnostic packet.
+        A valid packet starts with '$' (0x24) and ends with '\\n' (0x0A) and is exactly 18 bytes long.
+        
+        Returns:
+            Optional[bytes]: The valid packet if found, otherwise the buffer if it is not empty.
      */
 
     
@@ -119,43 +119,46 @@ class AcousticModemDriver{
     // to set power level
     bool set_level(int level);
 
-    // to set diagnostic mode
-    bool set_diagnostic_mode(bool diagnostic);
+    //TODO to set diagnostic mode
+    bool set_diagnostic_mode();
+    
+
+    bool reset_diagnostic_mode();
 
     
     /**
-    Request a diagnostic report, decode it, update member varaibles from the report,
+        Request a diagnostic report, decode it, update member varaibles from the report,
     
-    TODO: and optionally save the report as a JSON file.
+        TODO: and optionally save the report as a JSON file.
     
-    This function sends the report request command and then listens for a valid packet
-    until overall_timeout seconds have elapsed.
-    
-    Parameters:
-        TODO: filename (str, optional): If provided, the report is saved to this file.
-        overall_timeout (float): Maximum time (in seconds) to wait for a valid report.
-    
-    Returns:
-        DiagnosticData: The decoded report if successful; otherwise, None.
+        This function sends the report request command and then listens for a valid packet
+        until overall_timeout seconds have elapsed.
+        
+        Parameters:
+            TODO: filename (str, optional): If provided, the report is saved to this file.
+            overall_timeout (float): Maximum time (in seconds) to wait for a valid report.
+        
+        Returns:
+            DiagnosticData: The decoded report if successful; otherwise, None.
      */
     std::optional<DiagnosticData> request_report(float overall_timeout=5.0f);
 
 
     /**
-    Update internal state modem configuration
-    Parameters:
-        DiagnosticData report: Decoded report from the modem containing configuration info. 
+        Update internal state modem configuration
+        Parameters:
+            DiagnosticData report: Decoded report from the modem containing configuration info. 
      */
     void update_state_from_report(DiagnosticData report);
     
     /**
-    Request a diagnostic report from the modem.
+        Request a diagnostic report from the modem.
     */
     void get_report();
 
 
     /**
-     * Read data from the serial port and search for a valid diagnostic packet.
+       Read data from the serial port and search for a valid diagnostic packet.
         A valid packet starts with '$' (0x24) and ends with '\\n' (0x0A) and is exactly 18 bytes long.
         
         Returns:
@@ -165,17 +168,17 @@ class AcousticModemDriver{
     std::optional<std::vector<uint8_t>> read_packet();
 
     /**
-    Decode a diagnostic packet received from the modem.
+        Decode a diagnostic packet received from the modem.
         
-    The packet should be 18 bytes long, starting with '$' (0x24) and ending with '\\n' (0x0A).
-    The bytes between contain the data in the following format:
-        - Byte 0: '$'
-        - Bytes 1-16: Data fields (see modem documentation)
-        - Byte 17: '\\n'
-    
-    Returns:
-        TODO:Optional[Dict[str, Any]]: A dictionary of decoded values if the packet is valid,
-        otherwise None.
+        The packet should be 18 bytes long, starting with '$' (0x24) and ending with '\\n' (0x0A).
+        The bytes between contain the data in the following format:
+            - Byte 0: '$'
+            - Bytes 1-16: Data fields (see modem documentation)
+            - Byte 17: '\\n'
+        
+        Returns:
+            A DiagnosticData of decoded values if the packet is valid,
+            otherwise None.
      */
 
     std::optional<DiagnosticData> decode_packet(std::vector<uint8_t>& packet);
@@ -212,9 +215,10 @@ class AcousticModemDriver{
     std::string device_;
     int channel_;
     int level_;
+    bool diagnostic_;
 
     // Timeout per chunk,
-    static constexpr float default_timeout = 0.5f;
+    //static constexpr float default_timeout = 0.5f;
 
 
 };

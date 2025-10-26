@@ -13,7 +13,8 @@ AcousticModemDriver::AcousticModemDriver(std::string& device,int baudrate,int ch
       // saves the device path to a member variable
       device_(device),
       channel_(channel),
-      level_(level)   
+      level_(level),
+      diagnostic_(diagnostic)  
       {
         // initialization of the port in device_
         drv_.init_port(device_, cfg_);
@@ -32,9 +33,12 @@ AcousticModemDriver::AcousticModemDriver(std::string& device,int baudrate,int ch
         this->set_channel(channel);
         this->set_level(level);
 
-        // TODO: diagnostic mode if needed
-              
-
+        if(diagnostic){
+          this->set_diagnostic_mode();
+        }else{
+          this->reset_diagnostic_mode();
+        }
+        
         std::cout << "[INFO] Modem initialized on device " << this->device_
               << ", channel " << channel
               << ", level " << level
@@ -76,8 +80,7 @@ int AcousticModemDriver::send_two_bytes(std::string data){
 }
 
 int AcousticModemDriver::send_msg(std::string data, float timeout){
-  // TODO: implement in diagnostic mode, if needed
-
+  
   int  sum_sent_char=0;
 
   if(data.length()%2 != 0){
@@ -89,8 +92,26 @@ int AcousticModemDriver::send_msg(std::string data, float timeout){
     if(sent_chunk!=0){
       sum_sent_char+=sent_chunk;
     }
-    // wait for transmission
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+
+    if(!(this->diagnostic_)){
+      // wait for transmission
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      continue;
+    }
+    auto start_time=std::chrono::steady_clock::now();
+
+    while((std::chrono::steady_clock::now() - start_time) < std::chrono::duration<float>(timeout)){
+      std::optional<std::vector<uint8_t>> packet=this->read_packet();
+      if(packet.has_value()){
+        //std::vector<uint8_t> packet_cast=static_cast<std::vector<uint8_t>>(*packet);
+        std::optional<DiagnosticData> report=this->decode_packet(*packet);
+
+        if(report.has_value() && report->TX_COMPLETE==1){
+          std::cout<<"Transmission complete for chunk: "<<chunk<<std::endl;
+          break;
+        }
+      }    
+    }
   }
   return sum_sent_char;
 }
@@ -145,13 +166,26 @@ bool AcousticModemDriver::set_level(int level){
   return true;
 }
 
-// to set diagnostic mode?
-bool AcousticModemDriver::set_diagnostic_mode(bool diagnostic){
-  // TODO
+// to set diagnostic mode
+bool AcousticModemDriver::set_diagnostic_mode(){
+  this->send_data('d');
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  this->send_data('d');
+  diagnostic_=true;
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  return true;
+}
+
+bool AcousticModemDriver::reset_diagnostic_mode(){
+  this->send_data('t');
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  this->send_data('t');
+  diagnostic_=false;
+  std::this_thread::sleep_for(std::chrono::seconds(1));
   return false;
 }
 
-//TODO: don't like how optional is used, might change the std::nullopt
+
 std::optional<DiagnosticData> AcousticModemDriver::request_report(float overall_timeout){
   this->get_report();
 
@@ -160,20 +194,20 @@ std::optional<DiagnosticData> AcousticModemDriver::request_report(float overall_
     std::cout<<"Packet is empty"<< std::endl;
     return std::nullopt;
   }
-  std::vector<uint8_t> packet_cast=static_cast<std::vector<uint8_t>>(*packet);
-  std::cout<<"Returning packet of length: "<< std::string(packet_cast.begin(), packet_cast.end()).length()<<std::endl;
+  //std::vector<uint8_t> packet_cast=static_cast<std::vector<uint8_t>>(*packet);
+  std::cout<<"Returning packet of length: "<< std::string((*packet).begin(), (*packet).end()).length()<<std::endl;
   
-  std::optional<DiagnosticData> report=this->decode_packet(packet_cast);
+  std::optional<DiagnosticData> report=this->decode_packet(*packet);
   if(!(report.has_value())){
     std::cout<<"Failed to decode the packet."<< std::endl;
     return std::nullopt;
   }
-  DiagnosticData report_cast=static_cast<DiagnosticData>(*report);
-  this->update_state_from_report(report_cast);
+  //DiagnosticData report_cast=static_cast<DiagnosticData>(*report);
+  this->update_state_from_report(*report);
   
   //TODO? implement saving report in json file
   
-  return report;
+  return *report;
 
 }
 
@@ -181,10 +215,10 @@ void AcousticModemDriver::update_state_from_report(DiagnosticData report){
   
   this->channel_=static_cast<int>(report.CHANNEL);
   this->level_=static_cast<int>(report.POWER_LEVEL);
-  //TODO: this->diagnostic
-
+  this->diagnostic_=report.DIAGNOSTIC_MODE;
   std::cout<<"Updated channel: "<<this->channel_
-           <<"Updated level: "<<this->level_<< std::endl;
+           <<"Updated level: "<<this->level_
+           <<"Updated diagnostic: "<<this->diagnostic_<< std::endl;
 
 }
 
