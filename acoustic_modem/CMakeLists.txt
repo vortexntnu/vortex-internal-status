@@ -10,6 +10,8 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(serial_driver REQUIRED)
 find_package(io_context REQUIRED)
+find_package(nlohmann_json REQUIRED)
+
 
 include_directories(include)
 
@@ -24,6 +26,7 @@ ament_target_dependencies(${PROJECT_NAME}
   std_msgs
   serial_driver
   io_context
+  nlohmann_json
 )
 
 # Install library and headers

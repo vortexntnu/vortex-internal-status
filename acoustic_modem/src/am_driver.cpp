@@ -80,7 +80,7 @@ int AcousticModemDriver::send_two_bytes(std::string data){
 }
 
 int AcousticModemDriver::send_msg(std::string data, float timeout){
-  
+
   int  sum_sent_char=0;
 
   if(data.length()%2 != 0){
@@ -186,7 +186,7 @@ bool AcousticModemDriver::reset_diagnostic_mode(){
 }
 
 
-std::optional<DiagnosticData> AcousticModemDriver::request_report(float overall_timeout){
+std::optional<DiagnosticData> AcousticModemDriver::request_report(float overall_timeout,std::optional<std::string> filename){
   this->get_report();
 
   std::optional<std::vector<uint8_t>> packet=this->read_packet();
@@ -206,6 +206,10 @@ std::optional<DiagnosticData> AcousticModemDriver::request_report(float overall_
   this->update_state_from_report(*report);
   
   //TODO? implement saving report in json file
+  if(filename.has_value()){
+    
+    //TODO
+  }
   
   return *report;
 

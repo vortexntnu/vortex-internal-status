@@ -6,6 +6,8 @@
 #include<chrono>
 #include<vector>
 #include<optional>
+#include <fstream>          // per scrivere su file
+#include <nlohmann/json.hpp>
 #include <io_context/io_context.hpp>
 #include <serial_driver/serial_driver.hpp>
 #include <serial_driver/serial_port.hpp>
@@ -119,7 +121,7 @@ class AcousticModemDriver{
     // to set power level
     bool set_level(int level);
 
-    //TODO to set diagnostic mode
+    // to set diagnostic mode
     bool set_diagnostic_mode();
     
 
@@ -141,7 +143,7 @@ class AcousticModemDriver{
         Returns:
             DiagnosticData: The decoded report if successful; otherwise, None.
      */
-    std::optional<DiagnosticData> request_report(float overall_timeout=5.0f);
+    std::optional<DiagnosticData> request_report(float overall_timeout=5.0f,std::optional<std::string> filename = std::nullopt);
 
 
     /**
