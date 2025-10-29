@@ -53,7 +53,7 @@ class AcousticModemDriver{
             level (int): Power level to set (valid values 1 to 4), (default 4).
             diagnostic (bool): If True, set the modem to diagnostic mode; if False, set transparent mode, (default 1).
     **/
-    AcousticModemDriver(std::string& device,int baudrate=9600,int channel=1,int level=4,bool diagnostic=false,float timeout=0.5f);
+    AcousticModemDriver(const std::string& device,int baudrate,int channel,int level,bool diagnostic,float timeout);
 
 
 

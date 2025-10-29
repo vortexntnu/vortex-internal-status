@@ -3,7 +3,7 @@
 
 
 
-AcousticModemDriver::AcousticModemDriver(std::string& device,int baudrate,int channel,int level,bool diagnostic,float timeout)
+AcousticModemDriver::AcousticModemDriver(const std::string& device,int baudrate,int channel,int level,bool diagnostic,float timeout)
     : io_(1),       // I/O context, required by the library
       drv_(io_),    // SerialDriver object
       cfg_(baudrate,    // configuration how UART should operate
