@@ -51,27 +51,27 @@ AcousticModemDriver::~AcousticModemDriver(){
   port_->close();
 }
 
-int AcousticModemDriver::send_data(std::string data){
+size_t AcousticModemDriver::send_data(std::string data){
   // send data using serial driver's send(msg)
   std::vector<uint8_t> msg(data.begin(), data.end());
-  int bytes=port_->send(msg);
+  size_t bytes=port_->send(msg);
   return bytes;
 }
 
 // overload send_data(char)
-int AcousticModemDriver::send_data(char data){
+size_t AcousticModemDriver::send_data(char data){
   // send data using serial driver's send(msg)
   std::vector<uint8_t> msg = { static_cast<uint8_t>(data) };
-  int bytes=port_->send(msg);
+  size_t bytes=port_->send(msg);
   return bytes;
 }
 
-int AcousticModemDriver::send_two_bytes(std::string data){
+size_t AcousticModemDriver::send_two_bytes(std::string data){
   // only send 2 bytes waiting 1 second after sending them
   if(data.length()!=2){
-    return 0;
+    return 0; 
   }else{
-    int bytes=this->send_data(data);
+    size_t bytes=this->send_data(data);
 
     // 10bps
     std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -79,16 +79,16 @@ int AcousticModemDriver::send_two_bytes(std::string data){
   }
 }
 
-int AcousticModemDriver::send_msg(std::string data, float timeout){
+size_t AcousticModemDriver::send_msg(std::string data, float timeout){
 
-  int  sum_sent_char=0;
+  size_t sum_sent_char=0;
 
   if(data.length()%2 != 0){
     data+=' ';
   }
   for(int i=0; i<data.length();i+=2){
     std::string chunk=data.substr(i,2);
-    int sent_chunk=this->send_two_bytes(chunk);
+    size_t sent_chunk=this->send_two_bytes(chunk);
     if(sent_chunk!=0){
       sum_sent_char+=sent_chunk;
     }
@@ -102,14 +102,14 @@ int AcousticModemDriver::send_msg(std::string data, float timeout){
 
     while((std::chrono::steady_clock::now() - start_time) < std::chrono::duration<float>(timeout)){
       std::optional<std::vector<uint8_t>> packet=this->read_packet();
-      if(packet.has_value()){
-        //std::vector<uint8_t> packet_cast=static_cast<std::vector<uint8_t>>(*packet);
-        std::optional<DiagnosticData> report=this->decode_packet(*packet);
-
-        if(report.has_value() && report->TX_COMPLETE==1){
-          std::cout<<"Transmission complete for chunk: "<<chunk<<std::endl;
-          break;
-        }
+      if(!packet.has_value()){
+        break;
+      }
+      //std::vector<uint8_t> packet_cast=static_cast<std::vector<uint8_t>>(*packet);
+      std::optional<DiagnosticData> report=this->decode_packet(*packet);
+      if(report.has_value() && report->TX_COMPLETE==1){
+        std::cout<<"Transmission complete for chunk: "<<chunk<<std::endl;
+        break;
       }    
     }
   }
@@ -234,6 +234,22 @@ void AcousticModemDriver::get_report(){
 }
 
 
+void AcousticModemDriver::start_async_read(){
+  port_->async_receive([this](const std::vector<uint8_t>& data){
+    this->read_callback();
+    this->start_async_read();
+  });
+}
+
+void AcousticModemDriver::read_callback(){
+  //TODO
+  //std::lock_guard<std::mutex> lock(queue_mutex);
+  //queue.push(data);
+}
+
+std::vector<uint8_t> AcousticModemDriver::process_packet(){
+  //TODO
+}
 
 std::optional<std::vector<uint8_t>> AcousticModemDriver::read_packet(){
   // time duration to wait for a valid packet

@@ -8,6 +8,7 @@
 #include<optional>
 #include <fstream>          // per scrivere su file
 #include <nlohmann/json.hpp>
+//#include<mutex>
 #include <io_context/io_context.hpp>
 #include <serial_driver/serial_driver.hpp>
 #include <serial_driver/serial_port.hpp>
@@ -66,7 +67,7 @@ class AcousticModemDriver{
         Returns: 
             int: Number of characters written.
     **/
-    int send_data(std::string data);
+    size_t send_data(std::string data);
 
     /**
         Send ASCII data to the modem.
@@ -77,7 +78,7 @@ class AcousticModemDriver{
         Returns: 
             int: Number of characters written.
     **/
-    int send_data(char data);
+    size_t send_data(char data);
 
 
     /**
@@ -89,7 +90,7 @@ class AcousticModemDriver{
         Returns:
             int: Number of characters written
     **/
-    int send_two_bytes(std::string data);
+    size_t send_two_bytes(std::string data);
 
     /**
         Send a longer message (more than 2 bytes) in 2-byte chunks.
@@ -102,7 +103,7 @@ class AcousticModemDriver{
             timeout(float): Maximum time (in seconds) to wait for TX_COMPLETE
             after sending each 2-byte chunk.
     */
-    int send_msg(std::string data, float timeout=5.0f);
+    size_t send_msg(std::string data, float timeout=5.0f);
 
 
     /**
@@ -170,6 +171,22 @@ class AcousticModemDriver{
     std::optional<std::vector<uint8_t>> read_packet();
 
     /**
+     * read Data asyncronously
+     */
+    void start_async_read();
+
+    /**
+     * callback for async_receive(), saves data in queue
+     */
+    void read_callback();
+
+    /**
+     * ideally in this we should order the different packet and decode the message
+     * then it will be used in the ros2 node, how to decide which type of msg? header?
+     */
+    std::vector<uint8_t> process_packet();
+
+    /**
         Decode a diagnostic packet received from the modem.
         
         The packet should be 18 bytes long, starting with '$' (0x24) and ending with '\\n' (0x0A).
@@ -215,6 +232,13 @@ class AcousticModemDriver{
     drivers::serial_driver::SerialPortConfig cfg_;
     std::shared_ptr<drivers::serial_driver::SerialPort> port_;
     std::string device_;
+
+
+    // to save what we receive asyncronously
+    //std::queue<std::vector<uint8_t>> queue;
+    //std::mutex queue_mutex;
+
+
     int channel_;
     int level_;
     bool diagnostic_;
