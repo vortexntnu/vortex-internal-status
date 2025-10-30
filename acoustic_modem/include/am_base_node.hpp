@@ -2,6 +2,9 @@
 #define AM_BASE_NODE.HPP
 
 #include <rclcpp/rclcpp.hpp>
+#include <memory>
+#include <std_msgs/msg/string.hpp>
+#include "am_driver.hpp"
 
 /**
  * Creating two nodes, one for each system
@@ -20,23 +23,44 @@ class BaseNode : public rclcpp::Node {
     explicit BaseNode();
 
     private:
-    void set_sub_and_pub();
+    /**
+     * initialize the connection by creating AcousticModemDriver object
+     */
+    void init_connection();
 
+
+    void set_publishers();
 
     /**
-     * read_modem_data_callback, will read data from the modem and publish them in the
-     * correct topic  
+     * receive message from acoustic modem 
      */ 
-    void read_modem_data_callback;
+    void receive_message_timer();
+
     /**
-     * used in read_modem_data_callback to actually publishing in the topic
+     * build message based on order given by header
      */
-    void publish_x;
+    void rebuild_message();
     
     /**
-     * need a function to actually 
+     * publish message in correct topic based by header type
+     */
+    void publish();
+    
+    /**
+     * need method to extract header from each packet, organize order and data type and reconstruct message
+     * 
+     * then publish it in the correct topic
      */
     
+
+
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr data_1_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr data_2_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr data_3_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr data_4_;
+    std::unique_ptr<AcousticModemDriver> base_modem_;
+    //std::string latest_;
+    rclcpp::TimerBase::SharedPtr timer_;
 }
 
 

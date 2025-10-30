@@ -25,7 +25,7 @@ void DroneNode::init_connection(){
     bool diagnostic=this->get_parameter("diagnostic").as_bool();
     float timeout=static_cast<float>(this->get_parameter("timeout").as_double());
 
-    modem_=AcousticModemDriver(device,baudrate,channel,level,diagnostic,timeout);
+    drone_modem_=AcousticModemDriver(device,baudrate,channel,level,diagnostic,timeout);
 }
 
 void DroneNode::set_subscriber(){
@@ -38,7 +38,7 @@ void DroneNode::set_subscriber(){
 void DroneNode::acoustic_callback(){
     //TODO
     if(!latest_.empty()){
-        modem_.send_msg(latest_);
+        drone_modem_.send_msg(latest_);
     }
 }
 

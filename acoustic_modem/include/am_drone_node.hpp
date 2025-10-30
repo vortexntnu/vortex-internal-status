@@ -47,6 +47,9 @@ class DroneNode : public rclcpp::Node {
      * we save te last string received and then send it using the timer with an interval
      * 
      * To fix because we will probably lose informations
+     * 
+     * idea: queue for each new message in the topic and send them in order
+     * by giving each of them a sending time based on the lenght of the message  ?
      */
     void data_callback();
 
@@ -55,7 +58,7 @@ class DroneNode : public rclcpp::Node {
      * it's easier with send_msg(string), can be changed
      */
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_;
-    std::unique_ptr<AcousticModemDriver> modem_;
+    std::unique_ptr<AcousticModemDriver> drone_modem_;
     std::string latest_;
     rclcpp::TimerBase::SharedPtr timer_;
 };
