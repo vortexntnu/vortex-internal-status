@@ -235,11 +235,14 @@ void AcousticModemDriver::get_report(){
 
 
 void AcousticModemDriver::start_async_read(){
-  port_->async_receive([this](const std::vector<uint8_t>& data){
+  port_->async_receive([this](std::vector<uint8_t>& buffer, const size_t& bytes_transferred){
+    std::vector<uint8_t> data(buffer.begin(), buffer.begin() + bytes_transferred);
     this->read_callback();
     this->start_async_read();
   });
 }
+
+
 
 void AcousticModemDriver::read_callback(){
   //TODO
