@@ -6,6 +6,8 @@
 #include<chrono>
 #include<vector>
 #include<optional>
+#include <mutex>
+#include <queue>
 #include <fstream>          // per scrivere su file
 #include <nlohmann/json.hpp>
 //#include<mutex>
@@ -178,13 +180,13 @@ class AcousticModemDriver{
     /**
      * callback for async_receive(), saves data in queue
      */
-    void read_callback();
+    void read_callback(std::vector<uint8_t>& data);
 
     /**
      * ideally in this we should order the different packet and decode the message
      * then it will be used in the ros2 node, how to decide which type of msg? header?
      */
-    std::vector<uint8_t> process_packet();
+    std::optional<std::vector<uint8_t>> process_packet();
 
     /**
         Decode a diagnostic packet received from the modem.
@@ -235,8 +237,14 @@ class AcousticModemDriver{
 
 
     // to save what we receive asyncronously
-    //std::queue<std::vector<uint8_t>> queue;
-    //std::mutex queue_mutex;
+    /**
+     * needed because of async_read_some inserial lib
+     * it could be called when reading data and when writing 
+     * so race dondition
+     */
+    std::queue<std::vector<uint8_t>> queue;
+    std::map<uint8_t,std::map<uint8_t,uint16_t>> map;
+    std::mutex queue_mutex;
 
 
     int channel_;

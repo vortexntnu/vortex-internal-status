@@ -7,7 +7,17 @@ BaseNode::BaseNode() : Node("base_node"){
     set_publishers();
     init_connection();
 
+    /**
+     * possible future idea:
+     * one timer for filling the map with data (higher frequency)
+     * one timer for re-building the message (lower frequency)
+     * 
+     * present idea: one timer for both filling the map and re-building the message
+     */
+   
     timer_=this->create_wall_timer(5000ms, std::bind(, this));
+
+    
 }
 
 void BaseNode::init_connection(){

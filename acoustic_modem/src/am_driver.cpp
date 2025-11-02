@@ -237,21 +237,70 @@ void AcousticModemDriver::get_report(){
 void AcousticModemDriver::start_async_read(){
   port_->async_receive([this](std::vector<uint8_t>& buffer, const size_t& bytes_transferred){
     std::vector<uint8_t> data(buffer.begin(), buffer.begin() + bytes_transferred);
-    this->read_callback();
+    this->read_callback(data);
     this->start_async_read();
   });
 }
 
-
-
-void AcousticModemDriver::read_callback(){
+/**
+ * mutex probably needed because of async_receive
+ * asio lib creates a new thread, if we access that both when some data arrive (push)
+ * and when we need to extract (pop)
+ */
+void AcousticModemDriver::read_callback(std::vector<uint8_t>& data){
   //TODO
-  //std::lock_guard<std::mutex> lock(queue_mutex);
-  //queue.push(data);
+  std::lock_guard<std::mutex> lock(queue_mutex);
+  queue.push(data);
 }
 
-std::vector<uint8_t> AcousticModemDriver::process_packet(){
+
+/**
+ * re-build packet based on header bits
+ * checking for code, order and last
+ */
+std::optional<std::vector<uint8_t>> AcousticModemDriver::process_packet(){
   //TODO
+  std::vector<uint8_t> fragment;
+  {
+    std::lock_guard<std::mutex> lock(queue_mutex);
+    if(queue.empty()){
+      return std::nullopt;
+
+    }
+    fragment=std::move(queue.front());
+    queue.pop();
+    // mutex end
+  }
+
+  // to fix: using header?
+  uint8_t byte0=fragment[0];
+  uint8_t byte1=fragment[1];
+  uint8_t type=(byte0 & 0b11000000)>>6;
+  uint8_t order=(byte0 & 0b00111000)>>3;
+  bool last=(byte0 & 0b00000100)>>2;
+  uint16_t data=((byte0 & 0b00000011)<<8) | byte1;
+  map[type][order]=data;
+
+  if(!last){
+    return std::nullopt;
+  }
+  
+  bool complete=true;
+  for(int i=0;i<=order;++i){
+    if(map[type].count(i)==0){
+      complete=false;
+      //TODO: last arrived but not every fragment is inside the map
+      break;
+    }
+  }
+  
+  if(!complete){
+    //TODO: how to behave if not every fragment is present
+  }
+
+  // need to concatenate 10 data bit for each fragment
+
+
 }
 
 std::optional<std::vector<uint8_t>> AcousticModemDriver::read_packet(){
