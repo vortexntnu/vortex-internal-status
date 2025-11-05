@@ -211,6 +211,7 @@ class AcousticModemDriver{
 
     private:
 
+    //TODO: could be done by using class BitWriter
     void append_bits(std::vector<uint8_t>& buffer, uint16_t bit_to_append,int count, int& bit_position);
 
     struct DiagnosticPacket{

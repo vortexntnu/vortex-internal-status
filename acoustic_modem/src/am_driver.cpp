@@ -291,7 +291,7 @@ std::optional<std::vector<uint8_t>> AcousticModemDriver::process_packet(){
   for(int i=0;i<=order;++i){
     if(map[type].count(i)==0){
       complete=false;
-      //TODO: last arrived but not every fragment is inside the map
+      // last arrived but not every fragment is inside the map
       break;
     }
   }
@@ -299,6 +299,10 @@ std::optional<std::vector<uint8_t>> AcousticModemDriver::process_packet(){
   if(!complete){
     //TODO: how to behave if not every fragment is present
   }
+
+  // adding two bit at the start of the full message to understand which type of message is
+  append_bits(full_message, type, 2, bit_pos_);
+
   // need to concatenate 10 data bit for each fragment
   // we use order as number of package because we are working with the last package order
   for(int i=0; i<=order; i++){
