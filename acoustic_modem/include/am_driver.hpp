@@ -211,6 +211,8 @@ class AcousticModemDriver{
 
     private:
 
+    void append_bits(std::vector<uint8_t>& buffer, uint16_t bit_to_append,int count, int& bit_position);
+
     struct DiagnosticPacket{
         uint16_t TR_BLOCK;
         uint8_t BER;
@@ -245,6 +247,10 @@ class AcousticModemDriver{
     std::queue<std::vector<uint8_t>> queue;
     std::map<uint8_t,std::map<uint8_t,uint16_t>> map;
     std::mutex queue_mutex;
+
+    // keeps count on what bit are we are at when we recreate the message
+    int bit_pos_;
+    std::vector<uint8_t> full_message;
 
 
     int channel_;

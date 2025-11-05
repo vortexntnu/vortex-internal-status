@@ -39,6 +39,9 @@ AcousticModemDriver::AcousticModemDriver(const std::string& device,int baudrate,
           this->reset_diagnostic_mode();
         }
         
+        // start waiting for data
+        this->start_async_read();
+
         std::cout << "[INFO] Modem initialized on device " << this->device_
               << ", channel " << channel
               << ", level " << level
@@ -248,7 +251,6 @@ void AcousticModemDriver::start_async_read(){
  * and when we need to extract (pop)
  */
 void AcousticModemDriver::read_callback(std::vector<uint8_t>& data){
-  //TODO
   std::lock_guard<std::mutex> lock(queue_mutex);
   queue.push(data);
 }
@@ -297,9 +299,38 @@ std::optional<std::vector<uint8_t>> AcousticModemDriver::process_packet(){
   if(!complete){
     //TODO: how to behave if not every fragment is present
   }
-
   // need to concatenate 10 data bit for each fragment
+  // we use order as number of package because we are working with the last package order
+  for(int i=0; i<=order; i++){
+    append_bits(full_message, map[type][i],10,bit_pos_);
+  }
 
+  auto message=full_message;
+
+  // deleting data for next message
+  full_message.clear();
+  map.erase(type);
+  bit_pos_=0;
+
+  return message;
+}
+
+void AcousticModemDriver::append_bits(std::vector<uint8_t>& buffer, uint16_t bit_to_append,int count, int& bit_position){
+  for(int i=count-1; i>=0; --i){
+    // extract the bit
+    bool bit=(bit_to_append >> i) & 1;
+
+    // if we completed the previous element of the buffer, we create a new one
+    if(bit==0){
+      buffer.push_back(0);
+    }
+
+    if(bit){
+      buffer.back()|=(1<<(7-bit_position));
+    }
+    // increase the position we are adding the bit
+    bit_position=(bit_position+1)%8;
+  }
 
 }
 
