@@ -279,14 +279,14 @@ std::optional<std::vector<uint8_t>> AcousticModemDriver::process_packet() {
         // mutex end
     }
 
-    // to fix: using header?
-    uint8_t byte0 = fragment[0];
-    uint8_t byte1 = fragment[1];
-    uint8_t type = (byte0 & 0b11000000) >> 6;
-    uint8_t order = (byte0 & 0b00111000) >> 3;
-    bool last = (byte0 & 0b00000100) >> 2;
-    uint16_t data = ((byte0 & 0b00000011) << 8) | byte1;
-    map[type][order] = data;
+  // to fix: using header?
+  uint8_t byte0=fragment[0];
+  uint8_t byte1=fragment[1];
+  uint8_t type=(byte0 & 0xC0)>>6;
+  uint8_t order=(byte0 & 0x38)>>3;
+  bool last=(byte0 & 0x04)>>2;
+  uint16_t data=((byte0 & 0x03)<<8) | byte1;
+  map[type][order]=data;
 
     if (!last) {
         return std::nullopt;
@@ -375,30 +375,27 @@ std::optional<std::vector<uint8_t>> AcousticModemDriver::read_packet() {
                   << "Buffer: " << std::string(buffer.begin(), buffer.end())
                   << std::endl;
 
-        if (bytes_read > 17) {  // look for diagnostic packet
-            auto begin =
-                find(buffer.begin(), buffer.end(), '$');  // returns iterator
-            auto end = find(buffer.begin(), buffer.end(), '\n');
-
-            if (begin != buffer.end() &&
-                end != buffer.end()) {  // create and return diagnostic packet
-                std::vector<uint8_t> packet(begin, end + 1);
-                std::cout << "Returning packet: "
-                          << std::string(packet.begin(), packet.end())
-                          << std::endl;
-                return packet;
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    if(bytes_read<=17){                    // look for diagnostic packet
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      continue;
     }
-    if (buffer.size() == 0) {
-        std::cout << "Returning no data";
-        return std::nullopt;
-    } else {
-        std::cout << "Returning buffer: "
-                  << std::string(buffer.begin(), buffer.end()) << std::endl;
-        return buffer;
+    auto begin = find(buffer.begin(), buffer.end(), '$'); // returns iterator 
+    auto end= find(buffer.begin(), buffer.end(), '\n');
+    
+    if(begin!=buffer.end() && end!=buffer.end()) {  // create and return diagnostic packet
+      std::vector<uint8_t> packet(begin, end+1);
+      std::cout<<"Returning packet: "<< std::string(packet.begin(), packet.end())<<std::endl;
+      return packet;
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+  if(buffer.size()==0){
+    std::cout<<"Returning no data";
+    return std::nullopt;
+  }else{
+    std::cout<< "Returning buffer: " <<std::string(buffer.begin(), buffer.end())<<std::endl;
+    return buffer;
+  }
 }
 
 std::optional<DiagnosticData> AcousticModemDriver::decode_packet(
@@ -437,15 +434,15 @@ std::optional<DiagnosticData> AcousticModemDriver::decode_packet(
     data.CHIP_ID[0] = static_cast<uint8_t>(raw.CHIP_ID & 0xFF);
     data.CHIP_ID[0] = static_cast<uint8_t>((raw.CHIP_ID) >> 8 & 0xFF);
 
-    uint8_t hw = raw.HW_CH_FLAGS;
-    data.HW_REV = hw & 0b00000011;
-    data.CHANNEL = hw & 0b00111100;
-    data.TB_VALID = hw & 0b01000000;
-    data.TX_COMPLETE = hw & 0b10000000;
+  uint8_t hw = raw.HW_CH_FLAGS;
+  data.HW_REV      =hw & 0x03;
+  data.CHANNEL     =hw & 0x3C;
+  data.TB_VALID    =hw & 0x40;
+  data.TX_COMPLETE =hw & 0x80;
 
-    uint8_t ml = raw.MODE_LEVEL_FLAGS;
-    data.DIAGNOSTIC_MODE = ml & 0b00000001;
-    data.POWER_LEVEL = ml & 0b00001100;
+  uint8_t ml=raw.MODE_LEVEL_FLAGS;
+  data.DIAGNOSTIC_MODE=ml & 0x01;
+  data.POWER_LEVEL    =ml & 0x0C;
 
     return data;
 }
