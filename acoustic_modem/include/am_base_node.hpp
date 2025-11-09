@@ -30,26 +30,15 @@ class BaseNode : public rclcpp::Node {
     void set_publishers();
 
     /**
-     * receive message from acoustic modem
-     */
-    void receive_message_timer();
-
-    /**
-     * build message based on order given by header
-     */
-    void rebuild_message();
-
-    /**
      * publish message in correct topic based by header type
      */
-    void publish();
+    void publish_in_correct_topic();
 
     /**
-     * need method to extract header from each packet, organize order and data
-     * type and reconstruct message
-     *
-     * then publish it in the correct topic
+     * extract header from message to publish it in the correct type
+     * shifts the message as before
      */
+    uint8 extract_type_and_shift(std::vector<uint8_t>& msg);
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr data_1_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr data_2_;

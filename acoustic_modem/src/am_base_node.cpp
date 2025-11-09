@@ -6,16 +6,7 @@ BaseNode::BaseNode() : Node("base_node") {
     set_publishers();
     init_connection();
 
-    /**
-     * possible future idea:
-     * one timer for filling the map with data (higher frequency)
-     * one timer for re-building the message (lower frequency)
-     *
-     * present idea: one timer for both filling the map and re-building the
-     * message
-     */
-
-    timer_ = this->create_wall_timer(5000ms, std::bind(, this));
+    timer_ = this->create_wall_timer(1000ms, std::bind(&BaseNode::publish_in_correct_topic(), this));
 }
 
 void BaseNode::init_connection() {
@@ -40,10 +31,45 @@ void BaseNode::init_connection() {
 
 void BaseNode::set_publishers() {
     // we reserved 2 bit for the type of data so we'll have 4 types of data
+    data_0_ = this->create_publisher<std_msgs::msg::String>("topic_0", 10);
     data_1_ = this->create_publisher<std_msgs::msg::String>("topic_1", 10);
     data_2_ = this->create_publisher<std_msgs::msg::String>("topic_2", 10);
     data_3_ = this->create_publisher<std_msgs::msg::String>("topic_3", 10);
-    data_4_ = this->create_publisher<std_msgs::msg::String>("topic_4", 10);
 }
 
-void BaseNode::rebuild_message() {}
+void BaseNode::publish_in_correct_topic() {
+    std::optional<std::vector<uint8_t>> message=base_modem_.process_packet();
+
+    if(!message.has_value()){
+        return;
+    }
+    uint8_t type=extract_type_and_shift(message);
+
+    switch(type){
+        case 0:
+        data_0_->publish(message);
+        case 1:
+        data_1_->publish(message);
+        case 2:
+        data_2_->publish(message);
+        case 3:
+        data_3_->publish(message);
+    }
+}
+
+// remove the type bit and shifts the message as before
+uint8_t BaseNode::extract_type_and_shift(std::vector<uint8_t>& msg){
+    uint8_t header=msg[0];
+    uint8_t type=(header & 0xC0) >> 6;
+
+    uint8_t carry = 0;
+    for (size_t i = 0; i < msg.size(); ++i) {
+        uint8_t current = msg[i];
+        msg[i] = static_cast<uint8_t>((current << 2) | (carry >> 6));
+        carry = current;
+    }
+    //remove non necessary bits at the end of the messages
+    msg.pop_back();
+
+    return type();
+}
