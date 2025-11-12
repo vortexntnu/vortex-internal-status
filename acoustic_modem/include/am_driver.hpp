@@ -15,10 +15,15 @@
 #include <serial_driver/serial_driver.hpp>
 #include <serial_driver/serial_port.hpp>
 
-struct PacketHeader {
+
+/**
+ * we don't need last, we know the dimension of the data we are sending
+ * so we use the type to understand which send_data we use
+*/
+ struct PacketHeader {
     uint8_t type : 2;
     uint8_t order : 3;
-    uint8_t last : 1;
+    //uint8_t last : 1;
 };
 
 struct DiagnosticData {
@@ -40,6 +45,10 @@ struct DiagnosticData {
 };
 
 class AcousticModemDriver {
+    //friend class TestAcousticModemDriver;
+    public:
+    //default for testing
+    AcousticModemDriver();
     /**
         close the port
      */
@@ -108,6 +117,9 @@ class AcousticModemDriver {
             after sending each 2-byte chunk.
     */
     size_t send_msg(std::string data, float timeout = 5.0f);
+
+
+    
 
     /**
         Read data from the serial port and search for a valid diagnostic packet.
@@ -257,6 +269,7 @@ class AcousticModemDriver {
     std::map<uint8_t, std::map<uint8_t, uint16_t>> map;
     std::mutex queue_mutex;
 
+    //std::queue<std::string> pending_msg;
     // keeps count on what bit are we are at when we recreate the message
     int bit_pos_;
     std::vector<uint8_t> full_message;
