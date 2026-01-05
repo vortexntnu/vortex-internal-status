@@ -70,6 +70,40 @@ AcousticModemDriver::~AcousticModemDriver() {
     
 // }
 
+uint16_t AcousticModemDriver::make_handshake(MsgType t){
+    const uint16_t id  = (msg_id++ & 0x03FF);          // 10-bit rolling counter
+    const uint16_t type = (uint16_t(t) & 0x0003);       // keep only 2 bits
+    // [SYNC(4) | TYPE(2) | MSG_ID(10)]
+    return uint16_t((uint16_t(HANDSHAKE_SYNC) << 12) |
+                    (type << 10) |
+                    id);
+}
+
+static uint8_t AcousticModemDriver::floats_for_type(MsgType t) {
+  switch (t) {
+    case MsgType::Type_1:  return 2;
+    case MsgType::Type_2:  return 4;
+    case MsgType::Type_3:  return 5;
+    default:               return 0;
+  }
+}
+
+static void AcousticModemDriver::float_to_word(float v, uint16_t &w0, uint16_t &w1){
+    uint8_t b[4];
+    std::memcpy(b,&v,4);
+
+    w0 = uint16_t(b[0]) | (uint16_t(b[1]) << 8);
+    w1 = uint16_t(b[2]) | (uint16_t(b[3]) << 8);
+}
+
+// static void AcousticModemDriver::send_word(uint16_t w){
+
+// }
+
+// void AcousticModemDriver::send_message(MsgType type, const float* data){
+
+// }
+
 size_t AcousticModemDriver::send_data(std::string data) {
     // send data using serial driver's send(msg)
     std::vector<uint8_t> msg(data.begin(), data.end());

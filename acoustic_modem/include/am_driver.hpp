@@ -20,11 +20,21 @@
  * we don't need last, we know the dimension of the data we are sending
  * so we use the type to understand which send_data we use
 */
- struct PacketHeader {
-    uint8_t type : 2;
-    uint8_t order : 3;
-    //uint8_t last : 1;
+//  struct PacketHeader {
+//     uint8_t type : 2;
+//     uint8_t order : 3;
+//     //uint8_t last : 1;
+// };
+
+enum class MsgType : uint8_t{
+    Type_1 = 0,
+    Type_2 = 1,
+    Type_3 = 2,
+    Type_4 = 3,
 };
+
+
+
 
 struct DiagnosticData {
     uint8_t TR_BLOCK[2];  // 6 bits will be used by the packet header
@@ -70,6 +80,21 @@ class AcousticModemDriver {
                         int level,
                         bool diagnostic,
                         float timeout);
+
+    uint16_t make_handshake(MsgType type);
+
+
+    // distinguish each type of messsage and associate a number of float with it
+    static uint8_t floats_for_type(MsgType t);
+
+    // divide the float in 2 uint16
+    static void float_to_word(float v, uint16_t &w0, uint16_t &w1);
+
+    // convert float to string and use send_two_bytes
+    static void send_word(uint16_t w);
+
+    // send whole messagge with handshake and chunks
+    void send_message(MsgType type, const float* data);
 
     /**
         Send ASCII data to the modem.
@@ -258,6 +283,12 @@ class AcousticModemDriver {
     drivers::serial_driver::SerialPortConfig cfg_;
     std::shared_ptr<drivers::serial_driver::SerialPort> port_;
     std::string device_;
+
+
+    // 4 bits to recognize handshake
+    static constexpr uint8_t HANDSHAKE_SYNC = 0xA;
+    // 8 bit for msg id, to avoid error caused by lag or delay (TODO: to check if it is necessary)
+    static uint8_t msg_id=0;
 
     // to save what we receive asynchronously
     /**

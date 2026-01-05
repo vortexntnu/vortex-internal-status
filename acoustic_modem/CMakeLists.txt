@@ -54,3 +54,9 @@ install(
 
 
 ament_package()
+
+# if(BUILD_TESTING)
+#   find_package(ament_cmake_gtest REQUIRED)
+#   ament_add_gtest(test_driver test/test_driver.cpp)
+#   target_link_libraries(test_driver ${PROJECT_NAME})
+# endif()
