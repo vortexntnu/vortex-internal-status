@@ -19,6 +19,7 @@ AcousticModemDriver::AcousticModemDriver(const std::string& device,
       level_(level),
       diagnostic_(diagnostic) {
     // initialization of the port in device_
+    msg_id=0;
     drv_.init_port(device_, cfg_);
 
     // creation of the actual SerialPort object (create to use open(), close()
@@ -79,7 +80,17 @@ uint16_t AcousticModemDriver::make_handshake(MsgType t){
                     id);
 }
 
-static uint8_t AcousticModemDriver::floats_for_type(MsgType t) {
+bool AcousticModemDriver::is_handshake(uint16_t packet){
+    return ((packet>>12 & 0xF)==HANDSHAKE_SYNC);
+}
+MsgType AcousticModemDriver::type(uint16_t packet){
+    return MsgType((packet>>10 & 0x3));
+}
+uint16_t AcousticModemDriver::id(uint16_t packet){
+    return ((packet & 0x3FF));
+}
+
+size_t AcousticModemDriver::floats_for_type(MsgType t) {
   switch (t) {
     case MsgType::Type_1:  return 2;
     case MsgType::Type_2:  return 4;
@@ -88,21 +99,37 @@ static uint8_t AcousticModemDriver::floats_for_type(MsgType t) {
   }
 }
 
-static void AcousticModemDriver::float_to_word(float v, uint16_t &w0, uint16_t &w1){
+void AcousticModemDriver::float_to_word(float v, uint16_t &w0, uint16_t &w1){
     uint8_t b[4];
     std::memcpy(b,&v,4);
 
-    w0 = uint16_t(b[0]) | (uint16_t(b[1]) << 8);
+    w0 = uint16_t(b[0]) | (uint16_t(b[1]) << 8); // low part of w1 = b[0], high part=b[1]
     w1 = uint16_t(b[2]) | (uint16_t(b[3]) << 8);
 }
 
-// static void AcousticModemDriver::send_word(uint16_t w){
+void AcousticModemDriver::send_word(uint16_t w){
+    std::string s(2, '\0'); // string of 2 bytes
+    s[0]=static_cast<char>(w & 0xFF);
+    s[1]=static_cast<char>((w>>8) & 0xFF);
+    send_two_bytes(s);
+}
 
-// }
-
-// void AcousticModemDriver::send_message(MsgType type, const float* data){
-
-// }
+void AcousticModemDriver::send_message(MsgType type, const float* data){
+    const size_t n= floats_for_type(type);
+    // TODO: implement for fourth type of data or default case (return;)
+    if(n==0 || data==nullptr){
+        return;
+    }
+    send_word(make_handshake(type)); // send the first packet of 16 bit containing [SYNC(4) | TYPE(2) | MSG_ID(10)]
+    for(int i=0;i<n;++i){
+        uint16_t w0;
+        uint16_t w1;
+        float_to_word(data[i], w0, w1);
+        send_word(w0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // we could implement it similar to send_msg
+        send_word(w1);
+    }
+}
 
 size_t AcousticModemDriver::send_data(std::string data) {
     // send data using serial driver's send(msg)
