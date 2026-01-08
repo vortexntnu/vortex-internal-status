@@ -91,11 +91,20 @@ class AcousticModemDriver {
     // divide the float in 2 uint16
     static void float_to_word(float v, uint16_t &w0, uint16_t &w1);
 
+    static float word_to_float(uint16_t w0, uint16_t w1);
+
     // convert float to string and use send_two_bytes
     void send_word(uint16_t w);
 
     // send whole messagge with handshake and chunks
     void send_message(MsgType type, const float* data);
+
+
+    void rx_start_handshake(uint16_t hs_word);
+    
+    void rx_reset();
+
+    bool rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_t &out_msg_id, float *out_floats, uint8_t &inout_capacity, std::chrono::milliseconds timeout);
 
     /**
         Send ASCII data to the modem.
@@ -143,10 +152,7 @@ class AcousticModemDriver {
             after sending each 2-byte chunk.
     */
     size_t send_msg(std::string data, float timeout = 5.0f);
-
-
     
-
     /**
         Read data from the serial port and search for a valid diagnostic packet.
         A valid packet starts with '$' (0x24) and ends with '\\n' (0x0A) and is
@@ -254,7 +260,8 @@ class AcousticModemDriver {
     void close();
 
    private:
-    // TODO: could be done by using class BitWriter
+
+   // TODO: could be done by using class BitWriter
     void append_bits(std::vector<uint8_t>& buffer,
                      uint16_t bit_to_append,
                      int count,
@@ -289,7 +296,17 @@ class AcousticModemDriver {
     // 4 bits to recognize handshake
     static constexpr uint8_t HANDSHAKE_SYNC = 0xA;
     // 8 bit for msg id, to avoid error caused by lag or delay (TODO: to check if it is necessary)
-    static uint8_t msg_id;
+    uint16_t msg_id;
+
+    bool rx_receiving= false;
+    uint16_t rx_msg_id= 0;
+    uint16_t rx_expected_words = 0;
+    uint16_t rx_received_words = 0;
+
+    static constexpr uint16_t RX_MAX_WORDS = 10;
+    uint16_t rx_words_[RX_MAX_WORDS]{};
+
+    std::chrono::steady_clock::time_point rx_last_rx_{};
 
     // to save what we receive asynchronously
     /**

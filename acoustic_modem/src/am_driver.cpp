@@ -131,6 +131,30 @@ void AcousticModemDriver::send_message(MsgType type, const float* data){
     }
 }
 
+void AcousticModemDriver::rx_reset() {
+    rx_receiving= false;
+    rx_expected_words= 0;
+    rx_received_words = 0;
+}
+
+void AcousticModemDriver::rx_start_handshake(uint16_t hs_word){
+    
+}
+
+bool AcousticModemDriver::rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_t &out_msg_id, float *out_floats, uint8_t &inout_capacity, std::chrono::milliseconds timeout){
+    auto now = std::chrono::steady_clock::now();
+
+    // timeout for incomplete message (the timeout is to be defined if it is needed)
+    if (rx_receiving && (now - rx_last_rx > timeout)) {
+        rx_reset();
+    }
+    rx_last_rx= now;
+
+
+
+}
+
+
 size_t AcousticModemDriver::send_data(std::string data) {
     // send data using serial driver's send(msg)
     std::vector<uint8_t> msg(data.begin(), data.end());
