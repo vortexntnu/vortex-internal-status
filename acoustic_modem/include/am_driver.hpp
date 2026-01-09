@@ -27,10 +27,11 @@
 // };
 
 enum class MsgType : uint8_t{
-    Type_1 = 0,
-    Type_2 = 1,
-    Type_3 = 2,
-    Type_4 = 3,
+    Type_def=0,
+    Type_1 = 1,
+    Type_2 = 2,
+    Type_3 = 3,
+    Type_4 = 4,
 };
 
 struct DiagnosticData {
@@ -106,6 +107,7 @@ class AcousticModemDriver {
 
     bool rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_t &out_msg_id, float *out_floats, uint8_t &inout_capacity, std::chrono::milliseconds timeout);
 
+    bool try_pop_rx(std::vector<uint8_t> &out_w);
     /**
         Send ASCII data to the modem.
 
@@ -295,18 +297,24 @@ class AcousticModemDriver {
 
     // 4 bits to recognize handshake
     static constexpr uint8_t HANDSHAKE_SYNC = 0xA;
-    // 8 bit for msg id, to avoid error caused by lag or delay (TODO: to check if it is necessary)
+    // 10 bit for msg id, to avoid error caused by lag or delay (TODO: to check if it is necessary)
     uint16_t msg_id;
 
-    bool rx_receiving= false;
-    uint16_t rx_msg_id= 0;
-    uint16_t rx_expected_words = 0;
-    uint16_t rx_received_words = 0;
+    static constexpr uint16_t RX_MAX_WORDS = 20;
+    //static constexpr uint8_t RX_MAX_FLOATS = 10;
+    
+    struct RxState{
+        bool rx_receiving= false;
+        MsgType rx_type=MsgType::Type_def;
+        uint16_t rx_msg_id= 0;
+        uint16_t rx_expected_words = 0;
+        uint16_t rx_received_words = 0;
+        uint16_t rx_words[RX_MAX_WORDS]{};
+        uint8_t rx_n_floats= 0;
+        std::chrono::steady_clock::time_point rx_last_rx{};
+    };
 
-    static constexpr uint16_t RX_MAX_WORDS = 10;
-    uint16_t rx_words_[RX_MAX_WORDS]{};
-
-    std::chrono::steady_clock::time_point rx_last_rx_{};
+    RxState rx;
 
     // to save what we receive asynchronously
     /**

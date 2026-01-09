@@ -107,6 +107,17 @@ void AcousticModemDriver::float_to_word(float v, uint16_t &w0, uint16_t &w1){
     w1 = uint16_t(b[2]) | (uint16_t(b[3]) << 8);
 }
 
+float AcousticModemDriver::word_to_float(uint16_t w0, uint16_t w1){
+    uint8_t b[4];
+    b[0]=uint8_t(w0 & 0xFF);
+    b[1]=uint8_t((w0 >> 8) & 0xFF);
+    b[2]=uint8_t(w1 & 0xFF);
+    b[3]=uint8_t((w1 >> 8) & 0xFF);
+    float v;
+    std::memcpy(&v, b, 4);
+    return v;
+}
+
 void AcousticModemDriver::send_word(uint16_t w){
     std::string s(2, '\0'); // string of 2 bytes
     s[0]=static_cast<char>(w & 0xFF);
@@ -132,28 +143,71 @@ void AcousticModemDriver::send_message(MsgType type, const float* data){
 }
 
 void AcousticModemDriver::rx_reset() {
-    rx_receiving= false;
-    rx_expected_words= 0;
-    rx_received_words = 0;
+    rx.rx_receiving= false;
+    rx.rx_expected_words= 0;
+    rx.rx_received_words = 0;
 }
 
 void AcousticModemDriver::rx_start_handshake(uint16_t hs_word){
-    
+    rx.rx_type=type(hs_word);
+    rx.rx_msg_id=id(hs_word);
+    rx.rx_expected_words = 2*(floats_for_type(rx.rx_type));
+    rx.rx_received_words = 0;
+    if( rx.rx_expected_words==0 ||  rx.rx_expected_words>RX_MAX_WORDS){
+        rx.rx_receiving=false;
+        return;
+    }
+    rx.rx_receiving=true;
 }
 
-bool AcousticModemDriver::rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_t &out_msg_id, float *out_floats, uint8_t &inout_capacity, std::chrono::milliseconds timeout){
+bool AcousticModemDriver::rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_t &out_msg_id,float *out_floats, uint8_t &inout_capacity, std::chrono::milliseconds timeout){
     auto now = std::chrono::steady_clock::now();
-
-    // timeout for incomplete message (the timeout is to be defined if it is needed)
-    if (rx_receiving && (now - rx_last_rx > timeout)) {
+    
+    // timeout for incomplete message (the timeout is to be defined and if it is needed)
+    if (rx.rx_receiving && (now - rx.rx_last_rx > timeout)) {
         rx_reset();
     }
-    rx_last_rx= now;
+    rx.rx_last_rx= now;
 
+    if(is_handshake(w)){
+        // if the word is a handshake we start receiveing from the start
+        rx_start_handshake(w);
+        return false;
+    }
+    if(!rx.rx_receiving){
+        return false;
+    }
+    if(rx.rx_received_words>rx.rx_expected_words){
+        rx_reset();
+        return false;
+    }
+    rx.rx_words[rx.rx_received_words++]=w;
+    const size_t n_floats=floats_for_type(rx.rx_type);
+    if(rx.rx_received_words==rx.rx_expected_words){
+        // maybe add check for floats capacity but i don't think it's necessary
 
+        for(size_t i=0; i<n_floats;i++){
+            out_floats[i]=word_to_float(rx.rx_words[2*i],rx.rx_words[2*i+1]);
+        }
+        out_type = rx.rx_type;
+        out_msg_id = rx.rx_msg_id;
+        inout_capacity = n_floats; // output number of floats
 
+        rx_reset();
+        return true;
+    }
+    return false;
 }
-
+// it's a vector of uint8_t but it will be converted when used in ros2
+bool AcousticModemDriver::try_pop_rx(std::vector<uint8_t> &out_w){
+    std::lock_guard<std::mutex> lock(queue_mutex);
+    if(queue.empty()){
+        return false;
+    }
+    out_w = queue.front();
+    queue.pop(); 
+    return true;
+}
 
 size_t AcousticModemDriver::send_data(std::string data) {
     // send data using serial driver's send(msg)
