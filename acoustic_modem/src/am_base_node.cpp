@@ -38,6 +38,27 @@ void BaseNode::set_publishers() {
     data_3_ = this->create_publisher<std_msgs::msg::String>("topic_3", 10);
 }
 
+
+void BaseNode::poll_and_publish_rx(){
+    std::vector<uint8_t> bytes;
+    while (base_modem_.try_pop_rx(bytes)) {
+        for (size_t i = 0; i < bytes.size(); i += 2) {
+            uint16_t w =static_cast<uint16_t>(bytes[i]) | (static_cast<uint16_t>(bytes[i + 1]) << 8);
+            MsgType out_type{};
+            uint16_t out_msg_id;
+            float floats[10];
+            uint8_t inout_capacity=0;
+            bool complete=base_modem_.rx_rebuild_word(w, out_type, out_msg_id, out_floats, inout_capacity, std::chrono::milliseconds(2000));
+            if (complete) {
+               
+                //PUBLISH HERE BASED ON TYPE, TO CHECK HOW
+            }   
+        }
+    }
+}
+
+
+
 void BaseNode::publish_in_correct_topic() {
     std::optional<std::vector<uint8_t>> message = base_modem_.process_packet();
 

@@ -29,6 +29,9 @@ class BaseNode : public rclcpp::Node {
 
     void set_publishers();
 
+
+    void poll_and_publish_rx();
+
     /**
      * publish message in correct topic based by header type
      */
