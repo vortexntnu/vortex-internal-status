@@ -5,32 +5,25 @@
  * 
  */
 
-enum class TDMAState{
-    MY_TURN;
-    WAIT_TURN;
-    LISTEN;
-}
-
+struct TDMAConfig{
+    uint8_t num_slots;
+    uint8_t my_slot;
+    std::chrono::seconds slot=std::chrono::seconds(25);
+    std::chrono::milliseconds guard=std::chrono::milliseconds(1000);
+    std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+};
 
 class TDMAManager{
     public:
-    TDMAManager(double max_slot_time, double guard_time, double silence_timeout, bool is_master);
+    TDMAManager(TDMAConfig config);
+    
+    // who is transmitting?
+    uint8_t current_slot(std::chrono::steady_clock::time_point now);
 
-    // modem is allowed to send
-    bool can_send();
-
-    //change the offset
-    void offset();
-
-    // change who is allowed to send
-    void update();
+    // am i allowed to transmit?
+    bool tx_allowed(std::chrono::steady_clock::time_point now);
 
     private:
-    double max_slot_time_;
-    double guard_time_;
-    double silence_timeout_;
-    bool is_master_;
-    TDMAState state;
-    
+    TDMAConfig cfg;
 
 }

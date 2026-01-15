@@ -26,6 +26,13 @@
 //     //uint8_t last : 1;
 // };
 
+enum class TxState{
+    SENDING,
+    WAIT_ACK,
+    IDLE,
+};
+
+
 enum class MsgType : uint8_t{
     Type_def=0,
     Type_1 = 1,
