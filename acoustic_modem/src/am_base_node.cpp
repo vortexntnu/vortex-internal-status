@@ -50,8 +50,17 @@ void BaseNode::poll_and_publish_rx(){
             uint8_t inout_capacity=0;
             bool complete=base_modem_.rx_rebuild_word(w, out_type, out_msg_id, out_floats, inout_capacity, std::chrono::milliseconds(2000));
             if (complete) {
-               
                 //PUBLISH HERE BASED ON TYPE, TO CHECK HOW
+                switch (out_type) {
+                    case MsgType::Type_1:
+                        data_0_->publish(out_floats);
+                    case MsgType::Type_2:
+                        data_1_->publish(out_floats);
+                    case MsgType::Type_3:
+                        data_2_->publish(out_floats);
+                    default:
+                        data_3_->publish(out_floats);
+                }
             }   
         }
     }
