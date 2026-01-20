@@ -6,6 +6,7 @@
  */
 
 struct TDMAConfig{
+    // should be two with just two nodes
     uint8_t num_slots;
     uint8_t my_slot;
     std::chrono::seconds slot=std::chrono::seconds(25);
@@ -15,7 +16,7 @@ struct TDMAConfig{
 
 class TDMAManager{
     public:
-    TDMAManager(TDMAConfig config);
+    TDMAManager(TDMAConfig config) : cfg(config){}
     
     // who is transmitting?
     uint8_t current_slot(std::chrono::steady_clock::time_point now);
