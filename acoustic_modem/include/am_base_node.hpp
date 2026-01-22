@@ -35,13 +35,13 @@ class BaseNode : public rclcpp::Node {
     /**
      * publish message in correct topic based by header type
      */
-    void publish_in_correct_topic();
+    // void publish_in_correct_topic();
 
     /**
      * extract header from message to publish it in the correct type
      * shifts the message as before
      */
-    uint8 extract_type_and_shift(std::vector<uint8_t>& msg);
+    // uint8 extract_type_and_shift(std::vector<uint8_t>& msg);
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr data_1_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr data_2_;

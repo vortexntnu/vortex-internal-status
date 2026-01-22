@@ -12,7 +12,7 @@
 #include <vector>
 #include <asio.hpp>
 #include <functional>
-
+#include <thread>
 #include <io_context/io_context.hpp>
 // #include <serial_driver/serial_driver.hpp>
 // #include <serial_driver/serial_port.hpp>
@@ -103,8 +103,8 @@ class AcousticModemDriver {
 
     static float word_to_float(uint16_t w0, uint16_t w1);
 
-    // convert float to string and use send_two_bytes
-    void send_word(uint16_t w);
+    // // convert float to string and use send_two_bytes
+    // void send_word(uint16_t w);
 
     // send whole messagge with handshake and chunks
     void send_message(MsgType type, const float* data);
@@ -126,7 +126,7 @@ class AcousticModemDriver {
         Returns:
             int: Number of characters written.
     **/
-    size_t send_data(std::string data);
+    // size_t send_data(std::string data);
 
     /**
         Send ASCII data to the modem.
@@ -162,7 +162,7 @@ class AcousticModemDriver {
             timeout(float): Maximum time (in seconds) to wait for TX_COMPLETE
             after sending each 2-byte chunk.
     */
-    size_t send_msg(std::string data, float timeout = 5.0f);
+    // size_t send_msg(std::string data, float timeout = 5.0f);
     
     /**
         Read data from the serial port and search for a valid diagnostic packet.
@@ -202,9 +202,9 @@ class AcousticModemDriver {
         Returns:
             DiagnosticData: The decoded report if successful; otherwise, None.
      */
-    std::optional<DiagnosticData> request_report(
-        float overall_timeout = 5.0f,
-        std::optional<std::string> filename = std::nullopt);
+    // std::optional<DiagnosticData> request_report(
+    //     float overall_timeout = 5.0f,
+    //     std::optional<std::string> filename = std::nullopt);
 
     /**
         Update internal state modem configuration
@@ -229,12 +229,9 @@ class AcousticModemDriver {
        it is not empty.
      */
 
-    std::optional<std::vector<uint8_t>> read_packet();
+    // std::optional<std::vector<uint8_t>> read_packet();
 
-    /**
-     * read Data asynchronously
-     */
-    void start_async_read();
+    
 
     /**
      * callback for async_receive(), saves data in queue
@@ -272,6 +269,10 @@ class AcousticModemDriver {
 
    private:
     
+   /**
+     * read Data asynchronously
+     */
+    void start_async_read();
     void async_receive(std::function<void (std::vector<uint8_t> &, const size_t &)> func);
     void async_receive_handler(const asio::error_code & error,size_t bytes_transferred);
     asio::io_context io_;

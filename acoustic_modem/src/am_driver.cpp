@@ -310,7 +310,7 @@ bool AcousticModemDriver::set_channel(int channel) {
             this->send_data('c');
             break;
         default:
-            this->send_data(std::to_string(channel));
+            this->send_data((char)channel);
             break;
     }
     channel_ = channel;
@@ -330,7 +330,7 @@ bool AcousticModemDriver::set_level(int level) {
     std::this_thread::sleep_for(std::chrono::seconds(1));
     this->send_data('l');
 
-    this->send_data(std::to_string(level));
+    this->send_data((char)(level));
     level_ = level;
     std::this_thread::sleep_for(std::chrono::seconds(1));
     return true;
@@ -355,37 +355,37 @@ bool AcousticModemDriver::reset_diagnostic_mode() {
     return false;
 }
 
-std::optional<DiagnosticData> AcousticModemDriver::request_report(
-    float overall_timeout,
-    std::optional<std::string> filename) {
-    this->get_report();
+// std::optional<DiagnosticData> AcousticModemDriver::request_report(
+//     float overall_timeout,
+//     std::optional<std::string> filename) {
+//     this->get_report();
 
-    std::optional<std::vector<uint8_t>> packet = this->read_packet();
-    if (!(packet.has_value())) {
-        std::cout << "Packet is empty" << std::endl;
-        return std::nullopt;
-    }
-    // std::vector<uint8_t>
-    // packet_cast=static_cast<std::vector<uint8_t>>(*packet);
-    std::cout << "Returning packet of length: "
-              << std::string((*packet).begin(), (*packet).end()).length()
-              << std::endl;
+//     std::optional<std::vector<uint8_t>> packet = this->read_packet(); // è read packet non decode
+//     if (!(packet.has_value())) {
+//         std::cout << "Packet is empty" << std::endl;
+//         return std::nullopt;
+//     }
+//     // std::vector<uint8_t>
+//     // packet_cast=static_cast<std::vector<uint8_t>>(*packet);
+//     std::cout << "Returning packet of length: "
+//               << std::string((*packet).begin(), (*packet).end()).length()
+//               << std::endl;
 
-    std::optional<DiagnosticData> report = this->decode_packet(*packet);
-    if (!(report.has_value())) {
-        std::cout << "Failed to decode the packet." << std::endl;
-        return std::nullopt;
-    }
-    // DiagnosticData report_cast=static_cast<DiagnosticData>(*report);
-    this->update_state_from_report(*report);
+//     std::optional<DiagnosticData> report = this->decode_packet(*packet);
+//     if (!(report.has_value())) {
+//         std::cout << "Failed to decode the packet." << std::endl;
+//         return std::nullopt;
+//     }
+//     // DiagnosticData report_cast=static_cast<DiagnosticData>(*report);
+//     this->update_state_from_report(*report);
 
-    // TODO? implement saving report in json file
-    if (filename.has_value()) {
-        // TODO
-    }
+//     // TODO? implement saving report in json file
+//     if (filename.has_value()) {
+//         // TODO
+//     }
 
-    return *report;
-}
+//     return *report;
+// }
 
 void AcousticModemDriver::update_state_from_report(DiagnosticData report) {
     this->channel_ = static_cast<int>(report.CHANNEL);

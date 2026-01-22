@@ -37,10 +37,13 @@ void DroneNode::set_subscriber() {
 }
 
 void DroneNode::acoustic_callback() {
-    // TODO
-    if (!latest_.empty()) {
-        drone_modem_.send_msg(latest_);
+    if (latest_.empty()) {
+        return;
     }
+
+    std::string payload;
+    payload.swap(latest_);
+    drone_modem_.send_msg(payload);
 }
 
 void DroneNode::data_callback(

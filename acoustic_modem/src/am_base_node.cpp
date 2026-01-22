@@ -7,7 +7,7 @@ BaseNode::BaseNode() : Node("base_node") {
     init_connection();
 
     timer_ = this->create_wall_timer(
-        1000ms, std::bind(&BaseNode::publish_in_correct_topic(), this));
+        1000ms, std::bind(&BaseNode::poll_and_publish_rx(), this));
 }
 
 void BaseNode::init_connection() {
@@ -49,61 +49,62 @@ void BaseNode::poll_and_publish_rx(){
             float floats[10];
             uint8_t inout_capacity=0;
             bool complete=base_modem_.rx_rebuild_word(w, out_type, out_msg_id, out_floats, inout_capacity, std::chrono::milliseconds(2000));
-            if (complete) {
-                //PUBLISH HERE BASED ON TYPE, TO CHECK HOW
-                switch (out_type) {
-                    case MsgType::Type_1:
-                        data_0_->publish(out_floats);
-                    case MsgType::Type_2:
-                        data_1_->publish(out_floats);
-                    case MsgType::Type_3:
-                        data_2_->publish(out_floats);
-                    default:
-                        data_3_->publish(out_floats);
-                }
+            if (!complete) {
+                break;
             }   
+            switch (out_type) {
+            //PUBLISH HERE BASED ON TYPE, TO CHECK HOW
+                case MsgType::Type_1:
+                    data_1_->publish(out_floats);
+                case MsgType::Type_2:
+                    data_2_->publish(out_floats);
+                case MsgType::Type_3:
+                    data_3_->publish(out_floats);
+                default:
+                    data_4_->publish(out_floats);
+            }
         }
     }
 }
 
 
 
-void BaseNode::publish_in_correct_topic() {
-    std::optional<std::vector<uint8_t>> message = base_modem_.process_packet();
+// void BaseNode::publish_in_correct_topic() {
+//     std::optional<std::vector<uint8_t>> message = base_modem_.process_packet();
 
-    if (!message.has_value()) {
-        return;
-    }
-    uint8_t type = extract_type_and_shift(message);
+//     if (!message.has_value()) {
+//         return;
+//     }
+//     uint8_t type = extract_type_and_shift(message);
 
-    switch (type) {
-        case 0:
-            data_0_->publish(message);
-        case 1:
-            data_1_->publish(message);
-        case 2:
-            data_2_->publish(message);
-        case 3:
-            data_3_->publish(message);
-    }
-}
+//     switch (type) {
+//         case 0:
+//             data_0_->publish(message);
+//         case 1:
+//             data_1_->publish(message);
+//         case 2:
+//             data_2_->publish(message);
+//         case 3:
+//             data_3_->publish(message);
+//     }
+// }
 
 // remove the type bit and shifts the message as before
-uint8_t BaseNode::extract_type_and_shift(std::vector<uint8_t>& msg) {
-    uint8_t header = msg[0];
-    uint8_t type = (header & 0xC0) >> 6;
+// uint8_t BaseNode::extract_type_and_shift(std::vector<uint8_t>& msg) {
+//     uint8_t header = msg[0];
+//     uint8_t type = (header & 0xC0) >> 6;
 
-    uint8_t carry = 0;
-    for (size_t i = 0; i < msg.size(); ++i) {
-        uint8_t current = msg[i];
-        msg[i] = static_cast<uint8_t>((current << 2) | (carry >> 6));
-        carry = current;
-    }
-    // remove non necessary bits at the end of the messages
-    msg.pop_back();
+//     uint8_t carry = 0;
+//     for (size_t i = 0; i < msg.size(); ++i) {
+//         uint8_t current = msg[i];
+//         msg[i] = static_cast<uint8_t>((current << 2) | (carry >> 6));
+//         carry = current;
+//     }
+//     // remove non necessary bits at the end of the messages
+//     msg.pop_back();
 
-    return type();
-}
+//     return type();
+// }
 
 int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);
