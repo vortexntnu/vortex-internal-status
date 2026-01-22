@@ -10,10 +10,12 @@
 #include <queue>
 #include <string>
 #include <vector>
-// #include<mutex>
+#include <asio.hpp>
+#include <functional>
+
 #include <io_context/io_context.hpp>
-#include <serial_driver/serial_driver.hpp>
-#include <serial_driver/serial_port.hpp>
+// #include <serial_driver/serial_driver.hpp>
+// #include <serial_driver/serial_port.hpp>
 
 
 /**
@@ -86,7 +88,7 @@ class AcousticModemDriver {
                         bool diagnostic,
                         float timeout);
 
-    uint16_t make_handshake(MsgType type);
+    std::string make_handshake(MsgType type);
 
     // receiver will use these functions to implement the logic 
     bool is_handshake(uint16_t packet);
@@ -97,7 +99,7 @@ class AcousticModemDriver {
     static size_t floats_for_type(MsgType t);
 
     // divide the float in 2 uint16
-    static void float_to_word(float v, uint16_t &w0, uint16_t &w1);
+    static void float_to_word(float v, std::string &s0,std::string &s1);
 
     static float word_to_float(uint16_t w0, uint16_t w1);
 
@@ -269,7 +271,18 @@ class AcousticModemDriver {
     void close();
 
    private:
+    
+    void async_receive(std::function<void (std::vector<uint8_t> &, const size_t &)> func);
+    void async_receive_handler(const asio::error_code & error,size_t bytes_transferred);
+    asio::io_context io_;
+    asio::serial_port m_serial_port;
+    void open(const std::string& device, int& baudrate);
+    size_t send(const std::vector<uint8_t> & buff);
+    std::function<void (std::vector<uint8_t> &, const size_t &)> m_func;
+    std::thread io_thread_;
 
+    static constexpr size_t m_recv_buffer_size{2048};
+    std::vector<uint8_t> m_recv_buffer;
    // TODO: could be done by using class BitWriter
     void append_bits(std::vector<uint8_t>& buffer,
                      uint16_t bit_to_append,
@@ -293,12 +306,10 @@ class AcousticModemDriver {
         uint8_t MODE_LEVEL_FLAGS;  // 15 (contains DIAGNOSTIC_MODE, LEVEL)
     };
 
-    drivers::common::IoContext io_;
-
     // function called to get the port returns shared pointer: drv_.port()
-    drivers::serial_driver::SerialDriver drv_;
-    drivers::serial_driver::SerialPortConfig cfg_;
-    std::shared_ptr<drivers::serial_driver::SerialPort> port_;
+    // drivers::serial_driver::SerialDriver drv_;
+    // drivers::serial_driver::SerialPortConfig cfg_;
+    // std::shared_ptr<drivers::serial_driver::SerialPort> port_;
     std::string device_;
 
 

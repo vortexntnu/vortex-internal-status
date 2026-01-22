@@ -6,35 +6,25 @@ AcousticModemDriver::AcousticModemDriver(const std::string& device,
                                          int channel,
                                          int level,
                                          bool diagnostic,
-                                         float timeout)
-    : io_(1),         // I/O context, required by the library
-      drv_(io_),      // SerialDriver object
-      cfg_(baudrate,  // configuration how UART should operate
-           drivers::serial_driver::FlowControl::NONE,
-           drivers::serial_driver::Parity::NONE,
-           drivers::serial_driver::StopBits::ONE),
-      // saves the device path to a member variable
-      device_(device),
-      channel_(channel),
-      level_(level),
-      diagnostic_(diagnostic) {
+                                         float timeout): 
+                    io_(),
+                    m_serial_port(io_),
+                    device_(device),
+                    channel_(channel),
+                    level_(level),
+                    diagnostic_(diagnostic) {
     // initialization of the port in device_
     msg_id=0;
-    drv_.init_port(device_, cfg_);
-
-    // creation of the actual SerialPort object (create to use open(), close()
-    // ...)
-    port_ = drv_.port();
-
     // actually open physical serial port
-    port_->open();
+    this->open(device,baudrate);
 
-    if (!(port_->is_open())) {
-        std::cerr
-            << "[Error] Serial port not open. Communication will not start."
-            << std::endl;
-        return;
-    }
+    // not necessary now
+    // if (!(port_->is_open())) {
+    //     std::cerr
+    //         << "[Error] Serial port not open. Communication will not start."
+    //         << std::endl;
+    //     return;
+    // }
 
     this->set_channel(channel);
     this->set_level(level);
@@ -54,30 +44,38 @@ AcousticModemDriver::AcousticModemDriver(const std::string& device,
               << std::endl;
 }
 
-AcousticModemDriver::~AcousticModemDriver() {
-    port_->close();
+void AcousticModemDriver::open(const std::string& device, int& baudrate){
+    m_recv_buffer.resize(m_recv_buffer_size);
+    m_serial_port.open(device);
+    m_serial_port.set_option(asio::serial_port_base::baud_rate(baudrate));
+    m_serial_port.set_option(asio::serial_port_base::flow_control(asio::serial_port_base::flow_control::none));
+    m_serial_port.set_option(asio::serial_port_base::parity(asio::serial_port_base::parity::none));
+    m_serial_port.set_option(asio::serial_port_base::stop_bits(asio::serial_port_base::stop_bits::one));
+
+    start_async_read();
+    io_thread_ = std::thread([this] { io_.run(); });
 }
 
-// AcousticModemDriver::AcousticModemDriver()
-//     : io_(1),
-//       drv_(io_),
-//       cfg_(9600,
-//            drivers::serial_driver::FlowControl::NONE,
-//            drivers::serial_driver::Parity::NONE,
-//            drivers::serial_driver::StopBits::ONE),
-//       channel_(0),
-//       level_(0),
-//       diagnostic_(false) {
-    
-// }
+AcousticModemDriver::~AcousticModemDriver() {
+    asio::error_code error;
+    m_serial_port.close(error);
+}
 
-uint16_t AcousticModemDriver::make_handshake(MsgType t){
-    const uint16_t id  = (msg_id++ & 0x03FF);          // 10-bit rolling counter
-    const uint16_t type = (uint16_t(t) & 0x0003);       // keep only 2 bits
-    // [SYNC(4) | TYPE(2) | MSG_ID(10)]
-    return uint16_t((uint16_t(HANDSHAKE_SYNC) << 12) |
-                    (type << 10) |
-                    id);
+
+std::string AcousticModemDriver::make_handshake(MsgType t) {
+    const uint16_t id   = (msg_id++ & 0x03FF);    // 10 bits
+    const uint16_t type = (uint16_t(t) & 0x0003); // 2 bits
+
+    // build the 16-bit word
+    uint16_t w =(uint16_t(HANDSHAKE_SYNC) << 12) |
+        (type << 10) |
+        id;
+    // convert to 2-byte string (little-endian)
+    std::string s(2, '\0');
+    s[0] = static_cast<char>(w & 0xFF);        // low byte
+    s[1] = static_cast<char>((w >> 8) & 0xFF); // high byte
+
+    return s;
 }
 
 bool AcousticModemDriver::is_handshake(uint16_t packet){
@@ -99,12 +97,20 @@ size_t AcousticModemDriver::floats_for_type(MsgType t) {
   }
 }
 
-void AcousticModemDriver::float_to_word(float v, uint16_t &w0, uint16_t &w1){
-    uint8_t b[4];
-    std::memcpy(b,&v,4);
+// void AcousticModemDriver::float_to_word(float v, uint16_t &w0, uint16_t &w1){
+//     uint8_t b[4];
+//     std::memcpy(b,&v,4);
 
-    w0 = uint16_t(b[0]) | (uint16_t(b[1]) << 8); // low part of w1 = b[0], high part=b[1]
-    w1 = uint16_t(b[2]) | (uint16_t(b[3]) << 8);
+//     w0 = uint16_t(b[0]) | (uint16_t(b[1]) << 8); // low part of w1 = b[0], high part=b[1]
+//     w1 = uint16_t(b[2]) | (uint16_t(b[3]) << 8);
+// }
+void AcousticModemDriver::float_to_word(float v, std::string &s0,std::string &s1){
+    uint8_t b[4];
+    std::memcpy(b, &v, 4);
+    // Each string contains exactly 2 bytes (16 bits)
+    // TODO: change type
+    s0.assign(reinterpret_cast<const char*>(&b[0]), 2);
+    s1.assign(reinterpret_cast<const char*>(&b[2]), 2);
 }
 
 float AcousticModemDriver::word_to_float(uint16_t w0, uint16_t w1){
@@ -118,12 +124,13 @@ float AcousticModemDriver::word_to_float(uint16_t w0, uint16_t w1){
     return v;
 }
 
-void AcousticModemDriver::send_word(uint16_t w){
-    std::string s(2, '\0'); // string of 2 bytes
-    s[0]=static_cast<char>(w & 0xFF);
-    s[1]=static_cast<char>((w>>8) & 0xFF);
-    send_two_bytes(s);
-}
+// don't use it anymore
+// void AcousticModemDriver::send_word(uint16_t w){
+//     std::string s(2, '\0'); // string of 2 bytes
+//     s[0]=static_cast<char>(w & 0xFF);
+//     s[1]=static_cast<char>((w>>8) & 0xFF);
+//     send_two_bytes(s);
+// }
 
 void AcousticModemDriver::send_message(MsgType type, const float* data){
     const size_t n= floats_for_type(type);
@@ -131,14 +138,14 @@ void AcousticModemDriver::send_message(MsgType type, const float* data){
     if(n==0 || data==nullptr){
         return;
     }
-    send_word(make_handshake(type)); // send the first packet of 16 bit containing [SYNC(4) | TYPE(2) | MSG_ID(10)]
+    send_two_bytes(make_handshake(type)); // send the first packet of 16 bit containing [SYNC(4) | TYPE(2) | MSG_ID(10)]
     for(int i=0;i<n;++i){
-        uint16_t w0;
-        uint16_t w1;
+        std::string w0;
+        std::string w1;
         float_to_word(data[i], w0, w1);
-        send_word(w0);
+        send_two_bytes(w0);
         std::this_thread::sleep_for(std::chrono::milliseconds(100)); // we could implement it similar to send_msg
-        send_word(w1);
+        send_two_bytes(w1);
     }
 }
 
@@ -209,18 +216,19 @@ bool AcousticModemDriver::try_pop_rx(std::vector<uint8_t> &out_w){
     return true;
 }
 
-size_t AcousticModemDriver::send_data(std::string data) {
-    // send data using serial driver's send(msg)
-    std::vector<uint8_t> msg(data.begin(), data.end());
-    size_t bytes = port_->send(msg);
-    return bytes;
-}
+// we shouldn't need this, we just use send_Two_bytes
+// size_t AcousticModemDriver::send_data(std::string data) {
+//     // send data using serial driver's send(msg)
+//     std::vector<uint8_t> msg(data.begin(), data.end());
+//     size_t bytes = port_->send(msg);
+//     return bytes;
+// }
 
-// overload send_data(char)
+// send_data(char)
 size_t AcousticModemDriver::send_data(char data) {
     // send data using serial driver's send(msg)
     std::vector<uint8_t> msg = {static_cast<uint8_t>(data)};
-    size_t bytes = port_->send(msg);
+    size_t bytes = m_serial_port.write_some(asio::buffer(msg.data(), msg.size()));
     return bytes;
 }
 
@@ -229,14 +237,15 @@ size_t AcousticModemDriver::send_two_bytes(std::string data) {
     if (data.length() != 2) {
         return 0;
     } else {
-        size_t bytes = this->send_data(data);
-
+        std::vector<uint8_t> buff(data.begin(), data.end());
+        // might use write() instead write_some()
+        size_t bytes =m_serial_port.write_some(asio::buffer(buff.data(), 2));
         // 10bps
         std::this_thread::sleep_for(std::chrono::seconds(2));
         return bytes;
     }
 }
-
+/**
 size_t AcousticModemDriver::send_msg(std::string data, float timeout) {
     size_t sum_sent_char = 0;
 
@@ -275,7 +284,7 @@ size_t AcousticModemDriver::send_msg(std::string data, float timeout) {
     }
     return sum_sent_char;
 }
-
+*/
 // to set channel of communication
 bool AcousticModemDriver::set_channel(int channel) {
     // check channel is correct number
@@ -395,14 +404,41 @@ void AcousticModemDriver::get_report() {
 }
 
 void AcousticModemDriver::start_async_read() {
-    port_->async_receive(
+    this->async_receive(
         [this](std::vector<uint8_t>& buffer, const size_t& bytes_transferred) {
             std::vector<uint8_t> data(buffer.begin(),
                                       buffer.begin() + bytes_transferred);
             this->read_callback(data);
-            this->start_async_read();
         });
 }
+
+
+void AcousticModemDriver::async_receive(std::function<void (std::vector<uint8_t> &, const size_t &)> func)
+{
+    m_func=std::move(func);
+    m_serial_port.async_read_some(
+        asio::buffer(m_recv_buffer),
+        [this](std::error_code error, size_t bytes_transferred)
+        {
+        async_receive_handler(error, bytes_transferred);
+        });
+}
+void AcousticModemDriver::async_receive_handler(const asio::error_code & error,size_t bytes_transferred) {
+    if (error) {
+        this->close();
+        return;
+    }
+    if (bytes_transferred > 0 && m_func) {
+        m_func(m_recv_buffer, bytes_transferred);
+        m_serial_port.async_read_some(
+            asio::buffer(m_recv_buffer),
+            [this](std::error_code error, size_t bytes_transferred)
+            {
+                async_receive_handler(error, bytes_transferred);
+            });
+    }
+}
+
 
 /**
  * mutex probably needed because of async_receive
@@ -504,7 +540,7 @@ void AcousticModemDriver::append_bits(std::vector<uint8_t>& buffer,
         bit_position = (bit_position + 1) % 8;
     }
 }
-
+/**
 std::optional<std::vector<uint8_t>> AcousticModemDriver::read_packet() {
     // time duration to wait for a valid packet
     const auto time_duration = std::chrono::seconds(2);
@@ -558,7 +594,7 @@ std::optional<std::vector<uint8_t>> AcousticModemDriver::read_packet() {
         return buffer;
     }
 }
-
+*/
 std::optional<DiagnosticData> AcousticModemDriver::decode_packet(
     std::vector<uint8_t>& packet) {
     std::string packet_str(packet.begin(), packet.end());
@@ -609,5 +645,6 @@ std::optional<DiagnosticData> AcousticModemDriver::decode_packet(
 }
 
 void AcousticModemDriver::close() {
-    port_->close();
+    asio::error_code error;
+    m_serial_port.close(error);
 }
