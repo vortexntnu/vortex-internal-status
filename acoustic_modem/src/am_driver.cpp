@@ -36,7 +36,7 @@ AcousticModemDriver::AcousticModemDriver(const std::string& device,
     }
 
     // start waiting for data
-    this->start_async_read();
+    //this->start_async_read();
 
     std::cout << "[INFO] Modem initialized on device " << this->device_
               << ", channel " << channel << ", level " << level
