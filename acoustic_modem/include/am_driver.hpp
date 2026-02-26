@@ -13,7 +13,7 @@
 #include <asio.hpp>
 #include <functional>
 #include <thread>
-#include <io_context/io_context.hpp>
+//#include <io_context/io_context.hpp>
 // #include <serial_driver/serial_driver.hpp>
 // #include <serial_driver/serial_port.hpp>
 
@@ -182,6 +182,9 @@ class AcousticModemDriver {
 
     // to set diagnostic mode
     bool set_diagnostic_mode();
+
+    // to set diagnostic mode
+    bool set_parrot_mode();
 
     bool reset_diagnostic_mode();
 

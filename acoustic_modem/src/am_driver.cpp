@@ -346,6 +346,16 @@ bool AcousticModemDriver::set_diagnostic_mode() {
     return true;
 }
 
+// to set diagnostic mode
+bool AcousticModemDriver::set_parrot_mode() {
+    this->send_data('p');
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    this->send_data('p');
+    diagnostic_ = true;
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    return true;
+}
+
 bool AcousticModemDriver::reset_diagnostic_mode() {
     this->send_data('t');
     std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -451,95 +461,95 @@ void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
 }
 
 /**
- * re-build packet based on header bits
+ * NOT_USED: re-build packet based on header bits
  * checking for code, order and last
  */
-std::optional<std::vector<uint8_t>> AcousticModemDriver::process_packet() {
-    std::vector<uint8_t> fragment;
-    {
-        std::lock_guard<std::mutex> lock(queue_mutex);
-        if (queue.empty()) {
-            return std::nullopt;
-        }
-        fragment = std::move(queue.front());
-        queue.pop();
-        // mutex end
-    }
+// std::optional<std::vector<uint8_t>> AcousticModemDriver::process_packet() {
+//     std::vector<uint8_t> fragment;
+//     {
+//         std::lock_guard<std::mutex> lock(queue_mutex);
+//         if (queue.empty()) {
+//             return std::nullopt;
+//         }
+//         fragment = std::move(queue.front());
+//         queue.pop();
+//         // mutex end
+//     }
 
-    // to fix: using header?
-    uint8_t byte0 = fragment[0];
-    uint8_t byte1 = fragment[1];
-    uint8_t type = (byte0 & 0xC0) >> 6;
-    uint8_t order = (byte0 & 0x38) >> 3;
-    bool last = (byte0 & 0x04) >> 2;
-    uint16_t data = ((byte0 & 0x03) << 8) | byte1;
-    map[type][order] = data;
+//     // to fix: using header?
+//     uint8_t byte0 = fragment[0];
+//     uint8_t byte1 = fragment[1];
+//     uint8_t type = (byte0 & 0xC0) >> 6;
+//     uint8_t order = (byte0 & 0x38) >> 3;
+//     bool last = (byte0 & 0x04) >> 2;
+//     uint16_t data = ((byte0 & 0x03) << 8) | byte1;
+//     map[type][order] = data;
 
-    if (!last) {
-        return std::nullopt;
-    }
+//     if (!last) {
+//         return std::nullopt;
+//     }
 
-    bool complete = true;
-    for (int i = 0; i <= order; ++i) {
-        if (map[type].count(i) == 0) {
-            complete = false;
-            // last arrived but not every fragment is inside the map
-            break;
-        }
-    }
+//     bool complete = true;
+//     for (int i = 0; i <= order; ++i) {
+//         if (map[type].count(i) == 0) {
+//             complete = false;
+//             // last arrived but not every fragment is inside the map
+//             break;
+//         }
+//     }
 
-    if (!complete) {
-        // TODO: how to behave if not every fragment is present
-        // for now it just return null and the message is lost, 
-        // goal is to implement a way to retrieve the piece we lose
-        full_message.clear();
-        map.erase(type);
-        bit_pos_ = 0;
-        return std::nullopt;
-    }
+//     if (!complete) {
+//         // TODO: how to behave if not every fragment is present
+//         // for now it just return null and the message is lost, 
+//         // goal is to implement a way to retrieve the piece we lose
+//         full_message.clear();
+//         map.erase(type);
+//         bit_pos_ = 0;
+//         return std::nullopt;
+//     }
 
-    // adding two bit at the start of the full message to understand which type
-    // of message is
-    append_bits(full_message, type, 2, bit_pos_);
+//     // adding two bit at the start of the full message to understand which type
+//     // of message is
+//     append_bits(full_message, type, 2, bit_pos_);
 
-    // need to concatenate 10 data bit for each fragment
-    // we use order as number of package because we are working with the last
-    // package order
-    for (int i = 0; i <= order; i++) {
-        append_bits(full_message, map[type][i], 10, bit_pos_);
-    }
+//     // need to concatenate 10 data bit for each fragment
+//     // we use order as number of package because we are working with the last
+//     // package order
+//     for (int i = 0; i <= order; i++) {
+//         append_bits(full_message, map[type][i], 10, bit_pos_);
+//     }
 
-    auto message = full_message;
+//     auto message = full_message;
 
-    // deleting data for next message
-    full_message.clear();
-    map.erase(type);
-    bit_pos_ = 0;
+//     // deleting data for next message
+//     full_message.clear();
+//     map.erase(type);
+//     bit_pos_ = 0;
 
-    return message;
-}
+//     return message;
+// }
 
-void AcousticModemDriver::append_bits(std::vector<uint8_t>& buffer,
-                                      uint16_t bit_to_append,
-                                      int count,
-                                      int& bit_position) {
-    for (int i = count - 1; i >= 0; --i) {
-        // extract the bit
-        bool bit = (bit_to_append >> i) & 1;
+// void AcousticModemDriver::append_bits(std::vector<uint8_t>& buffer,
+//                                       uint16_t bit_to_append,
+//                                       int count,
+//                                       int& bit_position) {
+//     for (int i = count - 1; i >= 0; --i) {
+//         // extract the bit
+//         bool bit = (bit_to_append >> i) & 1;
 
-        // if we completed the previous element of the buffer, we create a new
-        // one
-        if (bit == 0) {
-            buffer.push_back(0);
-        }
+//         // if we completed the previous element of the buffer, we create a new
+//         // one
+//         if (bit == 0) {
+//             buffer.push_back(0);
+//         }
 
-        if (bit) {
-            buffer.back() |= (1 << (7 - bit_position));
-        }
-        // increase the position we are adding the bit
-        bit_position = (bit_position + 1) % 8;
-    }
-}
+//         if (bit) {
+//             buffer.back() |= (1 << (7 - bit_position));
+//         }
+//         // increase the position we are adding the bit
+//         bit_position = (bit_position + 1) % 8;
+//     }
+// }
 /**
 std::optional<std::vector<uint8_t>> AcousticModemDriver::read_packet() {
     // time duration to wait for a valid packet

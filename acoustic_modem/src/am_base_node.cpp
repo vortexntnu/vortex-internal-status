@@ -48,20 +48,20 @@ void BaseNode::poll_and_publish_rx(){
             uint16_t out_msg_id;
             float floats[10];
             uint8_t inout_capacity=0;
-            bool complete=base_modem_.rx_rebuild_word(w, out_type, out_msg_id, out_floats, inout_capacity, std::chrono::milliseconds(2000));
+            bool complete=base_modem_.rx_rebuild_word(w, out_type, out_msg_id, floats, inout_capacity, std::chrono::milliseconds(2000));
             if (!complete) {
                 break;
             }   
             switch (out_type) {
             //PUBLISH HERE BASED ON TYPE, TO CHECK HOW
                 case MsgType::Type_1:
-                    data_1_->publish(out_floats);
+                    data_1_->publish(floats);
                 case MsgType::Type_2:
-                    data_2_->publish(out_floats);
+                    data_2_->publish(floats);
                 case MsgType::Type_3:
-                    data_3_->publish(out_floats);
+                    data_3_->publish(floats);
                 default:
-                    data_4_->publish(out_floats);
+                    data_4_->publish(floats);
             }
         }
     }
