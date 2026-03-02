@@ -13,20 +13,6 @@
 #include <asio.hpp>
 #include <functional>
 #include <thread>
-//#include <io_context/io_context.hpp>
-// #include <serial_driver/serial_driver.hpp>
-// #include <serial_driver/serial_port.hpp>
-
-
-/**
- * we don't need last, we know the dimension of the data we are sending
- * so we use the type to understand which send_data we use
-*/
-//  struct PacketHeader {
-//     uint8_t type : 2;
-//     uint8_t order : 3;
-//     //uint8_t last : 1;
-// };
 
 enum class TxState{
     SENDING,
@@ -116,7 +102,15 @@ class AcousticModemDriver {
 
     bool rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_t &out_msg_id, float *out_floats, uint8_t &inout_capacity, std::chrono::milliseconds timeout);
 
-    bool try_pop_rx(std::vector<uint8_t> &out_w);
+     // added for parsing the message in read_callback()
+    struct DecodedMessage {
+        MsgType type;
+        uint16_t msg_id;
+        float floats[10];
+        uint8_t n_floats;
+    };
+
+    bool try_pop_decoded(DecodedMessage& msg);
     /**
         Send ASCII data to the modem.
 
@@ -242,13 +236,6 @@ class AcousticModemDriver {
     void read_callback(std::vector<uint8_t>& data);
 
     /**
-     * ideally in this we should order the different packet and decode the
-     * message then it will be used in the ros2 node, how to decide which type
-     * of msg? header?
-     */
-    std::optional<std::vector<uint8_t>> process_packet();
-
-    /**
         Decode a diagnostic packet received from the modem.
 
         The packet should be 18 bytes long, starting with '$' (0x24) and ending
@@ -276,22 +263,15 @@ class AcousticModemDriver {
      * read Data asynchronously
      */
     void start_async_read();
-    void async_receive(std::function<void (std::vector<uint8_t> &, const size_t &)> func);
     void async_receive_handler(const asio::error_code & error,size_t bytes_transferred);
     asio::io_context io_;
     asio::serial_port m_serial_port;
     void open(const std::string& device, int& baudrate);
-    size_t send(const std::vector<uint8_t> & buff);
     std::function<void (std::vector<uint8_t> &, const size_t &)> m_func;
     std::thread io_thread_;
 
     static constexpr size_t m_recv_buffer_size{2048};
     std::vector<uint8_t> m_recv_buffer;
-   // TODO: could be done by using class BitWriter
-    void append_bits(std::vector<uint8_t>& buffer,
-                     uint16_t bit_to_append,
-                     int count,
-                     int& bit_position);
 
     struct DiagnosticPacket {
         uint16_t TR_BLOCK;
@@ -344,8 +324,10 @@ class AcousticModemDriver {
      * it could be called when reading data and when writing
      * so race dondition
      */
-    std::queue<std::vector<uint8_t>> queue;
-    std::map<uint8_t, std::map<uint8_t, uint16_t>> map;
+    
+     // queue of uint8
+    std::queue<DecodedMessage> decoded_queue;
+    //std::map<uint8_t, std::map<uint8_t, uint16_t>> map;
     std::mutex queue_mutex;
 
     //std::queue<std::string> pending_msg;

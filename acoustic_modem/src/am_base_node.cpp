@@ -39,30 +39,14 @@ void BaseNode::set_publishers() {
 }
 
 
-void BaseNode::poll_and_publish_rx(){
-    std::vector<uint8_t> bytes;
-    while (base_modem_.try_pop_rx(bytes)) {
-        for (size_t i = 0; i < bytes.size(); i += 2) {
-            uint16_t w =static_cast<uint16_t>(bytes[i]) | (static_cast<uint16_t>(bytes[i + 1]) << 8);
-            MsgType out_type{};
-            uint16_t out_msg_id;
-            float floats[10];
-            uint8_t inout_capacity=0;
-            bool complete=base_modem_.rx_rebuild_word(w, out_type, out_msg_id, floats, inout_capacity, std::chrono::milliseconds(2000));
-            if (!complete) {
-                break;
-            }   
-            switch (out_type) {
-            //PUBLISH HERE BASED ON TYPE, TO CHECK HOW
-                case MsgType::Type_1:
-                    data_1_->publish(floats);
-                case MsgType::Type_2:
-                    data_2_->publish(floats);
-                case MsgType::Type_3:
-                    data_3_->publish(floats);
-                default:
-                    data_4_->publish(floats);
-            }
+void BaseNode::poll_and_publish_rx() {
+    DecodedMessage msg;
+    while (base_modem_.try_pop_decoded(msg)) {
+        switch(msg.type) {
+            case MsgType::Type_1: data_1_->publish(msg.floats); break;
+            case MsgType::Type_2: data_2_->publish(msg.floats); break;
+            case MsgType::Type_3: data_3_->publish(msg.floats); break;
+            default:              data_4_->publish(msg.floats); break;
         }
     }
 }

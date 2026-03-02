@@ -206,25 +206,15 @@ bool AcousticModemDriver::rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_
     return false;
 }
 // it's a vector of uint8_t but it will be converted when used in ros2
-bool AcousticModemDriver::try_pop_rx(std::vector<uint8_t> &out_w){
+bool AcousticModemDriver::try_pop_decoded(DecodedMessage& msg){
     std::lock_guard<std::mutex> lock(queue_mutex);
-    if(queue.empty()){
+    if(decoded_queue.empty()){
         return false;
     }
-    //TODO: change and queue is a queue of uint8 not vectors
-    out_w = queue.front();
-    queue.pop(); 
+    msg = decoded_queue.front();
+    decoded_queue.pop(); 
     return true;
 }
-
-// we shouldn't need this, we just use send_Two_bytes
-// size_t AcousticModemDriver::send_data(std::string data) {
-//     // send data using serial driver's send(msg)
-//     std::vector<uint8_t> msg(data.begin(), data.end());
-//     size_t bytes = port_->send(msg);
-//     return bytes;
-// }
-
 // send_data(char)
 size_t AcousticModemDriver::send_data(char data) {
     // send data using serial driver's send(msg)
@@ -246,46 +236,7 @@ size_t AcousticModemDriver::send_two_bytes(std::string data) {
         return bytes;
     }
 }
-/**
-size_t AcousticModemDriver::send_msg(std::string data, float timeout) {
-    size_t sum_sent_char = 0;
 
-    if (data.length() % 2 != 0) {
-        data += ' ';
-    }
-    for (int i = 0; i < data.length(); i += 2) {
-        std::string chunk = data.substr(i, 2);
-        size_t sent_chunk = this->send_two_bytes(chunk);
-        if (sent_chunk != 0) {
-            sum_sent_char += sent_chunk;
-        }
-
-        if (!(this->diagnostic_)) {
-            // wait for transmission
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            continue;
-        }
-        auto start_time = std::chrono::steady_clock::now();
-
-        while ((std::chrono::steady_clock::now() - start_time) <
-               std::chrono::duration<float>(timeout)) {
-            std::optional<std::vector<uint8_t>> packet = this->read_packet();
-            if (!packet.has_value()) {
-                break;
-            }
-            // std::vector<uint8_t>
-            // packet_cast=static_cast<std::vector<uint8_t>>(*packet);
-            std::optional<DiagnosticData> report = this->decode_packet(*packet);
-            if (report.has_value() && report->TX_COMPLETE == 1) {
-                std::cout << "Transmission complete for chunk: " << chunk
-                          << std::endl;
-                break;
-            }
-        }
-    }
-    return sum_sent_char;
-}
-*/
 // to set channel of communication
 bool AcousticModemDriver::set_channel(int channel) {
     // check channel is correct number
@@ -453,100 +404,19 @@ void AcousticModemDriver::async_receive_handler(const asio::error_code & error,s
  */
 void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
     std::cout << "[DEBUG] read_callback got " << data.size() << " bytes\n";
-    std::lock_guard<std::mutex> lock(queue_mutex);
-    queue.push(data);
+    //std::lock_guard<std::mutex> lock(queue_mutex);
+
+    if (data.size() < 2) return; // in this case we lose one byte data TODO: fix
+    uint16_t word = (static_cast<uint16_t>(data[1]) << 8) | data[0];
+    DecodedMessage msg_decoded{};
+    bool complete=rx_rebuild_word(word,msg_decoded.type,msg_decoded.msg_id,msg_decoded.floats,msg_decoded.n_floats,std::chrono::milliseconds(200));
+    if (complete) {
+        // we use the mutex because the decoded queue will be used by ros2 layer to publish in correct topic
+        std::lock_guard<std::mutex> lock(queue_mutex);
+        decoded_queue.push(msg_decoded);
+    }
 }
 
-/**
- * NOT_USED: re-build packet based on header bits
- * checking for code, order and last
- */
-// std::optional<std::vector<uint8_t>> AcousticModemDriver::process_packet() {
-//     std::vector<uint8_t> fragment;
-//     {
-//         std::lock_guard<std::mutex> lock(queue_mutex);
-//         if (queue.empty()) {
-//             return std::nullopt;
-//         }
-//         fragment = std::move(queue.front());
-//         queue.pop();
-//         // mutex end
-//     }
-
-//     // to fix: using header?
-//     uint8_t byte0 = fragment[0];
-//     uint8_t byte1 = fragment[1];
-//     uint8_t type = (byte0 & 0xC0) >> 6;
-//     uint8_t order = (byte0 & 0x38) >> 3;
-//     bool last = (byte0 & 0x04) >> 2;
-//     uint16_t data = ((byte0 & 0x03) << 8) | byte1;
-//     map[type][order] = data;
-
-//     if (!last) {
-//         return std::nullopt;
-//     }
-
-//     bool complete = true;
-//     for (int i = 0; i <= order; ++i) {
-//         if (map[type].count(i) == 0) {
-//             complete = false;
-//             // last arrived but not every fragment is inside the map
-//             break;
-//         }
-//     }
-
-//     if (!complete) {
-//         // TODO: how to behave if not every fragment is present
-//         // for now it just return null and the message is lost, 
-//         // goal is to implement a way to retrieve the piece we lose
-//         full_message.clear();
-//         map.erase(type);
-//         bit_pos_ = 0;
-//         return std::nullopt;
-//     }
-
-//     // adding two bit at the start of the full message to understand which type
-//     // of message is
-//     append_bits(full_message, type, 2, bit_pos_);
-
-//     // need to concatenate 10 data bit for each fragment
-//     // we use order as number of package because we are working with the last
-//     // package order
-//     for (int i = 0; i <= order; i++) {
-//         append_bits(full_message, map[type][i], 10, bit_pos_);
-//     }
-
-//     auto message = full_message;
-
-//     // deleting data for next message
-//     full_message.clear();
-//     map.erase(type);
-//     bit_pos_ = 0;
-
-//     return message;
-// }
-
-// void AcousticModemDriver::append_bits(std::vector<uint8_t>& buffer,
-//                                       uint16_t bit_to_append,
-//                                       int count,
-//                                       int& bit_position) {
-//     for (int i = count - 1; i >= 0; --i) {
-//         // extract the bit
-//         bool bit = (bit_to_append >> i) & 1;
-
-//         // if we completed the previous element of the buffer, we create a new
-//         // one
-//         if (bit == 0) {
-//             buffer.push_back(0);
-//         }
-
-//         if (bit) {
-//             buffer.back() |= (1 << (7 - bit_position));
-//         }
-//         // increase the position we are adding the bit
-//         bit_position = (bit_position + 1) % 8;
-//     }
-// }
 /**
 std::optional<std::vector<uint8_t>> AcousticModemDriver::read_packet() {
     // time duration to wait for a valid packet
