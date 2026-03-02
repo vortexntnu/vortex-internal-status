@@ -29,11 +29,11 @@ AcousticModemDriver::AcousticModemDriver(const std::string& device,
     this->set_channel(channel);
     this->set_level(level);
 
-    if (diagnostic) {
-        this->set_diagnostic_mode();
-    } else {
-        this->reset_diagnostic_mode();
-    }
+    // if (diagnostic) {
+    //     this->set_diagnostic_mode();
+    // } else {
+    //     this->reset_diagnostic_mode();
+    // }
 
     // start waiting for data
     //this->start_async_read();
@@ -211,6 +211,7 @@ bool AcousticModemDriver::try_pop_rx(std::vector<uint8_t> &out_w){
     if(queue.empty()){
         return false;
     }
+    //TODO: change and queue is a queue of uint8 not vectors
     out_w = queue.front();
     queue.pop(); 
     return true;
@@ -414,25 +415,20 @@ void AcousticModemDriver::get_report() {
 }
 
 void AcousticModemDriver::start_async_read() {
-    this->async_receive(
-        [this](std::vector<uint8_t>& buffer, const size_t& bytes_transferred) {
+    m_func=[this](std::vector<uint8_t>& buffer, const size_t& bytes_transferred) {
             std::vector<uint8_t> data(buffer.begin(),
                                       buffer.begin() + bytes_transferred);
             this->read_callback(data);
-        });
-}
-
-
-void AcousticModemDriver::async_receive(std::function<void (std::vector<uint8_t> &, const size_t &)> func)
-{
-    m_func=std::move(func);
+        };
     m_serial_port.async_read_some(
         asio::buffer(m_recv_buffer),
         [this](std::error_code error, size_t bytes_transferred)
         {
         async_receive_handler(error, bytes_transferred);
         });
+    
 }
+
 void AcousticModemDriver::async_receive_handler(const asio::error_code & error,size_t bytes_transferred) {
     if (error) {
         this->close();
@@ -456,6 +452,7 @@ void AcousticModemDriver::async_receive_handler(const asio::error_code & error,s
  * (push) and when we need to extract (pop)
  */
 void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
+    std::cout << "[DEBUG] read_callback got " << data.size() << " bytes\n";
     std::lock_guard<std::mutex> lock(queue_mutex);
     queue.push(data);
 }
