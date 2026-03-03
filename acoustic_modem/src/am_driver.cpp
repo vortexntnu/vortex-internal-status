@@ -13,19 +13,8 @@ AcousticModemDriver::AcousticModemDriver(const std::string& device,
                     channel_(channel),
                     level_(level),
                     diagnostic_(diagnostic) {
-    // initialization of the port in device_
     msg_id=0;
-    // actually open physical serial port
     this->open(device,baudrate);
-
-    // not necessary now
-    // if (!(port_->is_open())) {
-    //     std::cerr
-    //         << "[Error] Serial port not open. Communication will not start."
-    //         << std::endl;
-    //     return;
-    // }
-
     this->set_channel(channel);
     this->set_level(level);
 
@@ -34,9 +23,6 @@ AcousticModemDriver::AcousticModemDriver(const std::string& device,
     // } else {
     //     this->reset_diagnostic_mode();
     // }
-
-    // start waiting for data
-    //this->start_async_read();
 
     std::cout << "[INFO] Modem initialized on device " << this->device_
               << ", channel " << channel << ", level " << level
@@ -96,14 +82,6 @@ size_t AcousticModemDriver::floats_for_type(MsgType t) {
     default:               return 0;
   }
 }
-
-// void AcousticModemDriver::float_to_word(float v, uint16_t &w0, uint16_t &w1){
-//     uint8_t b[4];
-//     std::memcpy(b,&v,4);
-
-//     w0 = uint16_t(b[0]) | (uint16_t(b[1]) << 8); // low part of w1 = b[0], high part=b[1]
-//     w1 = uint16_t(b[2]) | (uint16_t(b[3]) << 8);
-// }
 void AcousticModemDriver::float_to_word(float v, std::string &s0,std::string &s1){
     uint8_t b[4];
     std::memcpy(b, &v, 4);
@@ -123,14 +101,6 @@ float AcousticModemDriver::word_to_float(uint16_t w0, uint16_t w1){
     std::memcpy(&v, b, 4);
     return v;
 }
-
-// don't use it anymore
-// void AcousticModemDriver::send_word(uint16_t w){
-//     std::string s(2, '\0'); // string of 2 bytes
-//     s[0]=static_cast<char>(w & 0xFF);
-//     s[1]=static_cast<char>((w>>8) & 0xFF);
-//     send_two_bytes(s);
-// }
 
 void AcousticModemDriver::send_message(MsgType type, const float* data){
     const size_t n= floats_for_type(type);
@@ -317,38 +287,6 @@ bool AcousticModemDriver::reset_diagnostic_mode() {
     return false;
 }
 
-// std::optional<DiagnosticData> AcousticModemDriver::request_report(
-//     float overall_timeout,
-//     std::optional<std::string> filename) {
-//     this->get_report();
-
-//     std::optional<std::vector<uint8_t>> packet = this->read_packet(); // è read packet non decode
-//     if (!(packet.has_value())) {
-//         std::cout << "Packet is empty" << std::endl;
-//         return std::nullopt;
-//     }
-//     // std::vector<uint8_t>
-//     // packet_cast=static_cast<std::vector<uint8_t>>(*packet);
-//     std::cout << "Returning packet of length: "
-//               << std::string((*packet).begin(), (*packet).end()).length()
-//               << std::endl;
-
-//     std::optional<DiagnosticData> report = this->decode_packet(*packet);
-//     if (!(report.has_value())) {
-//         std::cout << "Failed to decode the packet." << std::endl;
-//         return std::nullopt;
-//     }
-//     // DiagnosticData report_cast=static_cast<DiagnosticData>(*report);
-//     this->update_state_from_report(*report);
-
-//     // TODO? implement saving report in json file
-//     if (filename.has_value()) {
-//         // TODO
-//     }
-
-//     return *report;
-// }
-
 void AcousticModemDriver::update_state_from_report(DiagnosticData report) {
     this->channel_ = static_cast<int>(report.CHANNEL);
     this->level_ = static_cast<int>(report.POWER_LEVEL);
@@ -396,12 +334,6 @@ void AcousticModemDriver::async_receive_handler(const asio::error_code & error,s
     }
 }
 
-
-/**
- * mutex probably needed because of async_receive
- * asio lib creates a new thread, if we access that both when some data arrive
- * (push) and when we need to extract (pop)
- */
 void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
     std::cout << "[DEBUG] read_callback got " << data.size() << " bytes\n";
     //std::lock_guard<std::mutex> lock(queue_mutex);
@@ -416,6 +348,61 @@ void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
         decoded_queue.push(msg_decoded);
     }
 }
+
+std::optional<DiagnosticData> AcousticModemDriver::decode_packet(
+    std::vector<uint8_t>& packet) {
+    std::string packet_str(packet.begin(), packet.end());
+
+    if (packet_str.size() != 18 || packet_str.front() != '$' ||
+        packet_str.back() != '\n') {  // check if the packet is 18 bytes with
+                                      // the start and end character
+        return std::nullopt;
+    }
+
+    std::vector<uint8_t> data_bytes(
+        packet.begin() + 1,
+        packet.begin() + 17);  // remove start and end character
+
+    DiagnosticPacket raw{};
+    std::memcpy(
+        &raw, data_bytes.data(),
+        sizeof(data_bytes));  // copy raw bytes into struct DiagnosticPacket
+
+    DiagnosticData data{};
+    // Decode packet in DiagnosticData Struct
+    data.TR_BLOCK[0] = static_cast<uint8_t>(raw.TR_BLOCK & 0xFF);
+    data.TR_BLOCK[1] = static_cast<uint8_t>((raw.TR_BLOCK) >> 8 & 0xFF);
+    data.BER = raw.BER;
+    data.SIGNAL_POWER = raw.SIGNAL_POWER;
+    data.NOISE_POWER = raw.SIGNAL_POWER;
+    data.PACKET_VALID[0] = static_cast<uint8_t>(raw.PACKET_VALID & 0xFF);
+    data.PACKET_VALID[1] = static_cast<uint8_t>((raw.PACKET_VALID) >> 8 & 0xFF);
+    data.PACKET_INVALID = raw.PACKET_INVALID;
+    data.GIT_REV = raw.GIT_REV;
+    data.TIME[0] = raw.TIME_L;
+    data.TIME[1] = raw.TIME_M;
+    data.TIME[2] = raw.TIME_H;
+    data.CHIP_ID[0] = static_cast<uint8_t>(raw.CHIP_ID & 0xFF);
+    data.CHIP_ID[0] = static_cast<uint8_t>((raw.CHIP_ID) >> 8 & 0xFF);
+
+    uint8_t hw = raw.HW_CH_FLAGS;
+    data.HW_REV = hw & 0x03;
+    data.CHANNEL = hw & 0x3C;
+    data.TB_VALID = hw & 0x40;
+    data.TX_COMPLETE = hw & 0x80;
+
+    uint8_t ml = raw.MODE_LEVEL_FLAGS;
+    data.DIAGNOSTIC_MODE = ml & 0x01;
+    data.POWER_LEVEL = ml & 0x0C;
+
+    return data;
+}
+
+void AcousticModemDriver::close() {
+    asio::error_code error;
+    m_serial_port.close(error);
+}
+
 
 /**
 std::optional<std::vector<uint8_t>> AcousticModemDriver::read_packet() {
@@ -472,56 +459,36 @@ std::optional<std::vector<uint8_t>> AcousticModemDriver::read_packet() {
     }
 }
 */
-std::optional<DiagnosticData> AcousticModemDriver::decode_packet(
-    std::vector<uint8_t>& packet) {
-    std::string packet_str(packet.begin(), packet.end());
 
-    if (packet_str.size() != 18 || packet_str.front() != '$' ||
-        packet_str.back() != '\n') {  // check if the packet is 18 bytes with
-                                      // the start and end character
-        return std::nullopt;
-    }
+// std::optional<DiagnosticData> AcousticModemDriver::request_report(
+//     float overall_timeout,
+//     std::optional<std::string> filename) {
+//     this->get_report();
 
-    std::vector<uint8_t> data_bytes(
-        packet.begin() + 1,
-        packet.begin() + 17);  // remove start and end character
+//     std::optional<std::vector<uint8_t>> packet = this->read_packet(); // è read packet non decode
+//     if (!(packet.has_value())) {
+//         std::cout << "Packet is empty" << std::endl;
+//         return std::nullopt;
+//     }
+//     // std::vector<uint8_t>
+//     // packet_cast=static_cast<std::vector<uint8_t>>(*packet);
+//     std::cout << "Returning packet of length: "
+//               << std::string((*packet).begin(), (*packet).end()).length()
+//               << std::endl;
 
-    DiagnosticPacket raw{};
-    std::memcpy(
-        &raw, data_bytes.data(),
-        sizeof(data_bytes));  // copy raw bytes into struct DiagnosticPacket
+//     std::optional<DiagnosticData> report = this->decode_packet(*packet);
+//     if (!(report.has_value())) {
+//         std::cout << "Failed to decode the packet." << std::endl;
+//         return std::nullopt;
+//     }
+//     // DiagnosticData report_cast=static_cast<DiagnosticData>(*report);
+//     this->update_state_from_report(*report);
 
-    DiagnosticData data{};
-    // Decode packet in DiagnosticData Struct
-    data.TR_BLOCK[0] = static_cast<uint8_t>(raw.TR_BLOCK & 0xFF);
-    data.TR_BLOCK[1] = static_cast<uint8_t>((raw.TR_BLOCK) >> 8 & 0xFF);
-    data.BER = raw.BER;
-    data.SIGNAL_POWER = raw.SIGNAL_POWER;
-    data.NOISE_POWER = raw.SIGNAL_POWER;
-    data.PACKET_VALID[0] = static_cast<uint8_t>(raw.PACKET_VALID & 0xFF);
-    data.PACKET_VALID[1] = static_cast<uint8_t>((raw.PACKET_VALID) >> 8 & 0xFF);
-    data.PACKET_INVALID = raw.PACKET_INVALID;
-    data.GIT_REV = raw.GIT_REV;
-    data.TIME[0] = raw.TIME_L;
-    data.TIME[1] = raw.TIME_M;
-    data.TIME[2] = raw.TIME_H;
-    data.CHIP_ID[0] = static_cast<uint8_t>(raw.CHIP_ID & 0xFF);
-    data.CHIP_ID[0] = static_cast<uint8_t>((raw.CHIP_ID) >> 8 & 0xFF);
+//     // TODO? implement saving report in json file
+//     if (filename.has_value()) {
+//         // TODO
+//     }
 
-    uint8_t hw = raw.HW_CH_FLAGS;
-    data.HW_REV = hw & 0x03;
-    data.CHANNEL = hw & 0x3C;
-    data.TB_VALID = hw & 0x40;
-    data.TX_COMPLETE = hw & 0x80;
+//     return *report;
+// }
 
-    uint8_t ml = raw.MODE_LEVEL_FLAGS;
-    data.DIAGNOSTIC_MODE = ml & 0x01;
-    data.POWER_LEVEL = ml & 0x0C;
-
-    return data;
-}
-
-void AcousticModemDriver::close() {
-    asio::error_code error;
-    m_serial_port.close(error);
-}
