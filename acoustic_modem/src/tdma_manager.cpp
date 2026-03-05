@@ -2,7 +2,7 @@
 
 // return type can be changed
 uint8_t TDMAManager::current_slot(std::chrono::steady_clock::time_point now){
-    auto cycle=cfg.num_slots*cfg.slot;
+    auto cycle=cfg.num_slots*cfg.slot_duration;
     auto elapsed=now-cfg.t0;
     // how far are we in the cycle
     auto time_cycle=elapsed%cycle;
@@ -14,17 +14,17 @@ bool TDMAManager::tx_allowed(std::chrono::steady_clock::time_point now){
     if(current_slot(now)!=cfg.my_slot){
         return false;
     }
-    auto cycle=cfg.num_slots*cfg.slot;
+    auto cycle=cfg.num_slots*cfg.slot_duration;
     auto elapsed=now-cfg.t0;
     // how far are we in the cycle
     auto time_cycle=elapsed%cycle;
     uint8_t slot_i= time_cycle/cfg.slot;
-    auto offset_in_slot=time_cycle%cfg.slot;
+    auto offset_in_slot=time_cycle%cfg.slot_duration;
 
     if(offset_in_slot<cfg.guard){
         return false;
     }
-    if(offset_in_slot>(cfg.slot-cfg.guard)){
+    if(offset_in_slot>(cfg.slot_duration-cfg.guard)){
         return false;
     }
     return true;

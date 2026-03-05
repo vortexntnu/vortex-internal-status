@@ -8,29 +8,29 @@ struct LinkTxMessage {
 
 class TDMALink {
     
-    public:
-    TDMALink(AcousticModemDriver& driver, TDMAManager tdma);
+  public:
+  TDMALink(AcousticModemDriver& driver, TDMAManager tdma);
 
-    ~TDMALink();
+  ~TDMALink();
 
-    void start();
+  void start();
 
-    void stop();
+  void stop();
 
-    // this is the queue of the transmission if it's not right slot
-    void enqueue(MsgType type, std::vector<float> payload);
+  // this is the queue of the transmission if it's not right slot
+  void enqueue(MsgType type, std::vector<float> payload);
 
-    private:
-    void tx_worker();
+  private:
+  void tx_worker();
 
-    AcousticModemDriver& driver_;
-    TDMAManager tdma_;
+  AcousticModemDriver& driver_;
+  TDMAManager tdma_;
 
-    std::atomic<bool> running_{false};
+  std::atomic<bool> running_{false};
 
-    mutable std::mutex tx_mtx_;
-    std::condition_variable tx_cv_;
-    std::queue<LinkTxMessage> tx_q_;
+  mutable std::mutex tx_mtx_;
+  std::condition_variable tx_cv_;
+  std::queue<LinkTxMessage> tx_q_;
 
-    std::thread tx_thread_;
-    }
+  std::thread tx_thread_;
+}

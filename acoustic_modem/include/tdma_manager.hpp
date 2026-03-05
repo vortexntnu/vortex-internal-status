@@ -9,7 +9,7 @@ struct TDMAConfig{
     // should be two with just two nodes
     uint8_t num_slots;
     uint8_t my_slot;
-    std::chrono::seconds slot=std::chrono::seconds(25);
+    std::chrono::seconds slot_duration=std::chrono::seconds(25);
     std::chrono::milliseconds guard=std::chrono::milliseconds(1000);
     std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
 };
