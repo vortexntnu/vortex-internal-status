@@ -74,6 +74,10 @@ class AcousticModemDriver {
                         bool diagnostic,
                         float timeout);
 
+    std::string make_ack(MsgType t, uint16_t msg_id);
+
+    bool is_ack(uint16_t w) const;
+
     std::string make_handshake(MsgType type);
 
     // receiver will use these functions to implement the logic 
@@ -93,7 +97,7 @@ class AcousticModemDriver {
     // void send_word(uint16_t w);
 
     // send whole messagge with handshake and chunks
-    void send_message(MsgType type, const float* data);
+    size_t send_message(MsgType type, const float* data);
 
 
     void rx_start_handshake(uint16_t hs_word);
@@ -110,18 +114,14 @@ class AcousticModemDriver {
         uint8_t n_floats;
     };
 
+    struct Ack {
+        MsgType type;
+        uint16_t msg_id;
+    };
+
+
     bool try_pop_decoded(DecodedMessage& msg);
-    /**
-        Send ASCII data to the modem.
-
-        Parameters:
-            data (str): The data to be sent.
-
-        Returns:
-            int: Number of characters written.
-    **/
-    // size_t send_data(std::string data);
-
+    bool try_pop_ack(Ack &ack);
     /**
         Send ASCII data to the modem.
 
@@ -144,29 +144,6 @@ class AcousticModemDriver {
             int: Number of characters written
     **/
     size_t send_two_bytes(std::string data);
-
-    /**
-        Send a longer message (more than 2 bytes) in 2-byte chunks.
-        If in diagnostic mode, after sending each chunk, wait for a diagnostic
-       report that indicates the transmission is complete (TX_COMPLETE == 1). If
-       in transparent mode, simply wait 2 seconds between chunks.
-
-        Parameters:
-            data (str): The message to be sent.
-            timeout(float): Maximum time (in seconds) to wait for TX_COMPLETE
-            after sending each 2-byte chunk.
-    */
-    // size_t send_msg(std::string data, float timeout = 5.0f);
-    
-    /**
-        Read data from the serial port and search for a valid diagnostic packet.
-        A valid packet starts with '$' (0x24) and ends with '\\n' (0x0A) and is
-       exactly 18 bytes long.
-
-        Returns:
-            Optional[bytes]: The valid packet if found, otherwise the buffer if
-       it is not empty.
-     */
 
     // to set channel of communication
     bool set_channel(int channel);
@@ -298,7 +275,9 @@ class AcousticModemDriver {
 
 
     // 4 bits to recognize handshake
-    static constexpr uint8_t HANDSHAKE_SYNC = 0xA;
+    static constexpr uint8_t HANDSHAKE_SYNC = 0xA; //1010
+
+    static constexpr uint8_t ACK_SYNC= 0xB;  //1011
     // 10 bit for msg id, to avoid error caused by lag or delay (TODO: to check if it is necessary)
     uint16_t msg_id;
 
@@ -318,6 +297,7 @@ class AcousticModemDriver {
 
     RxState rx;
 
+
     // to save what we receive asynchronously
     /**
      * needed because of async_read_some inserial lib
@@ -327,20 +307,16 @@ class AcousticModemDriver {
     
      // queue of uint8
     std::queue<DecodedMessage> decoded_queue;
-    //std::map<uint8_t, std::map<uint8_t, uint16_t>> map;
-    std::mutex queue_mutex;
+    std::mutex decoded_mutex;
 
-    //std::queue<std::string> pending_msg;
-    // keeps count on what bit are we are at when we recreate the message
-    int bit_pos_;
-    std::vector<uint8_t> full_message;
+    // queue with all the Ack
+    std::queue<Ack> ack_queue;
+    std::mutex ack_mutex;
+
 
     int channel_;
     int level_;
     bool diagnostic_;
-
-    // Timeout per chunk,
-    // static constexpr float default_timeout = 0.5f;
 };
 
 #endif

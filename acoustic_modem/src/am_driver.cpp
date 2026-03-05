@@ -47,6 +47,21 @@ AcousticModemDriver::~AcousticModemDriver() {
     m_serial_port.close(error);
 }
 
+std::string AcousticModemDriver::make_ack(MsgType t, uint16_t msg_id) {
+    const uint16_t id   = (msg_id & 0x03FF);
+    const uint16_t type = (uint16_t(t) & 0x0003);
+
+    uint16_t w = (uint16_t(ACK_SYNC) << 12) | (type << 10) | id;
+
+    std::string s(2, '\0');
+    s[0] = static_cast<char>(w & 0xFF);
+    s[1] = static_cast<char>((w >> 8) & 0xFF);
+    return s;
+}
+bool AcousticModemDriver::is_ack(uint16_t w) const {
+    return (((w >> 12) & 0xF) == ACK_SYNC);
+}
+
 
 std::string AcousticModemDriver::make_handshake(MsgType t) {
     const uint16_t id   = (msg_id++ & 0x03FF);    // 10 bits
@@ -102,21 +117,23 @@ float AcousticModemDriver::word_to_float(uint16_t w0, uint16_t w1){
     return v;
 }
 
-void AcousticModemDriver::send_message(MsgType type, const float* data){
+size_t AcousticModemDriver::send_message(MsgType type, const float* data){
     const size_t n= floats_for_type(type);
+    size_t a=0;
     // TODO: implement for fourth type of data or default case (return;)
     if(n==0 || data==nullptr){
-        return;
+        return a;
     }
     send_two_bytes(make_handshake(type)); // send the first packet of 16 bit containing [SYNC(4) | TYPE(2) | MSG_ID(10)]
     for(int i=0;i<n;++i){
         std::string w0;
         std::string w1;
         float_to_word(data[i], w0, w1);
-        send_two_bytes(w0);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // we could implement it similar to send_msg
-        send_two_bytes(w1);
+        a+=send_two_bytes(w0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(20)); // we could implement it similar to send_msg
+        a+=send_two_bytes(w1);
     }
+    return a;
 }
 
 void AcousticModemDriver::rx_reset() {
@@ -139,10 +156,11 @@ void AcousticModemDriver::rx_start_handshake(uint16_t hs_word){
 
 bool AcousticModemDriver::rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_t &out_msg_id,float *out_floats, uint8_t &inout_capacity, std::chrono::milliseconds timeout){
     auto now = std::chrono::steady_clock::now();
-    
+    std::cout<<"ciao\n";
     // timeout for incomplete message (the timeout is to be defined and if it is needed)
     if (rx.rx_receiving && (now - rx.rx_last_rx > timeout)) {
         rx_reset();
+
     }
     rx.rx_last_rx= now;
 
@@ -177,14 +195,25 @@ bool AcousticModemDriver::rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_
 }
 // it's a vector of uint8_t but it will be converted when used in ros2
 bool AcousticModemDriver::try_pop_decoded(DecodedMessage& msg){
-    std::lock_guard<std::mutex> lock(queue_mutex);
+    std::lock_guard<std::mutex> lock(decoded_mutex);
     if(decoded_queue.empty()){
+        //std::cout<<"no\n";
         return false;
     }
     msg = decoded_queue.front();
     decoded_queue.pop(); 
     return true;
 }
+bool AcousticModemDriver::try_pop_ack(Ack &ack){
+    std::lock_guard<std::mutex> lock(ack_mutex);
+    if(ack_queue.empty()){
+        return false;
+    }
+    ack=ack_queue.front();
+    ack_queue.pop();
+    return true;
+}
+
 // send_data(char)
 size_t AcousticModemDriver::send_data(char data) {
     // send data using serial driver's send(msg)
@@ -313,6 +342,7 @@ void AcousticModemDriver::start_async_read() {
         asio::buffer(m_recv_buffer),
         [this](std::error_code error, size_t bytes_transferred)
         {
+        std::cout<<bytes_transferred<<"toh\n";
         async_receive_handler(error, bytes_transferred);
         });
     
@@ -342,9 +372,10 @@ void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
     uint16_t word = (static_cast<uint16_t>(data[1]) << 8) | data[0];
     DecodedMessage msg_decoded{};
     bool complete=rx_rebuild_word(word,msg_decoded.type,msg_decoded.msg_id,msg_decoded.floats,msg_decoded.n_floats,std::chrono::milliseconds(200));
+    std::cout<<complete;
     if (complete) {
         // we use the mutex because the decoded queue will be used by ros2 layer to publish in correct topic
-        std::lock_guard<std::mutex> lock(queue_mutex);
+        std::lock_guard<std::mutex> lock(decoded_mutex);
         decoded_queue.push(msg_decoded);
     }
 }
