@@ -231,7 +231,7 @@ size_t AcousticModemDriver::send_two_bytes(std::string data) {
         // might use write() instead write_some()
         size_t bytes =m_serial_port.write_some(asio::buffer(buff.data(), 2));
         // 10bps
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
         return bytes;
     }
 }
@@ -370,6 +370,18 @@ void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
 
     if (data.size() < 2) return; // in this case we lose one byte data TODO: fix
     uint16_t word = (static_cast<uint16_t>(data[1]) << 8) | data[0];
+
+    if(is_ack(word)){
+        Ack a;
+        a.msg_id=(word & 0x3FF);
+        a.type=MsgType((word >> 10) & 0x3);
+        {
+            std::lock_guard<std::mutex> lock(ack_mutex);
+            ack_queue.push(a);
+        }
+        return ;
+    }
+
     DecodedMessage msg_decoded{};
     bool complete=rx_rebuild_word(word,msg_decoded.type,msg_decoded.msg_id,msg_decoded.floats,msg_decoded.n_floats,std::chrono::milliseconds(200));
     std::cout<<complete;
