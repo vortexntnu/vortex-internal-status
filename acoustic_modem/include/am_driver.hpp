@@ -74,11 +74,14 @@ class AcousticModemDriver {
                         bool diagnostic,
                         float timeout);
 
+
     std::string make_ack(MsgType t, uint16_t msg_id);
 
     bool is_ack(uint16_t w) const;
 
-    std::string make_handshake(MsgType type);
+    uint16_t reserve_msg_id();
+
+    std::string make_handshake(MsgType type, uint16_t id);
 
     // receiver will use these functions to implement the logic 
     bool is_handshake(uint16_t packet);
@@ -97,7 +100,7 @@ class AcousticModemDriver {
     // void send_word(uint16_t w);
 
     // send whole messagge with handshake and chunks
-    size_t send_message(MsgType type, const float* data);
+    size_t send_message(MsgType type, uint16_t id, const float* data);
 
 
     void rx_start_handshake(uint16_t hs_word);

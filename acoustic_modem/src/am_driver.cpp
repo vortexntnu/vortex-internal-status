@@ -47,8 +47,14 @@ AcousticModemDriver::~AcousticModemDriver() {
     m_serial_port.close(error);
 }
 
-std::string AcousticModemDriver::make_ack(MsgType t, uint16_t msg_id) {
-    const uint16_t id   = (msg_id & 0x03FF);
+uint16_t AcousticModemDriver::reserve_msg_id() {
+    uint16_t id = msg_id & 0x03FF;
+    msg_id = (msg_id + 1) & 0x03FF;
+    return id;
+}
+
+std::string AcousticModemDriver::make_ack(MsgType t, uint16_t ack_id) {
+    const uint16_t id   = (ack_id & 0x03FF);
     const uint16_t type = (uint16_t(t) & 0x0003);
 
     uint16_t w = (uint16_t(ACK_SYNC) << 12) | (type << 10) | id;
@@ -63,8 +69,8 @@ bool AcousticModemDriver::is_ack(uint16_t w) const {
 }
 
 
-std::string AcousticModemDriver::make_handshake(MsgType t) {
-    const uint16_t id   = (msg_id++ & 0x03FF);    // 10 bits
+std::string AcousticModemDriver::make_handshake(MsgType t, uint16_t id) {
+    id &= 0x03FF; // 10 bits
     const uint16_t type = (uint16_t(t) & 0x0003); // 2 bits
 
     // build the 16-bit word
@@ -117,14 +123,14 @@ float AcousticModemDriver::word_to_float(uint16_t w0, uint16_t w1){
     return v;
 }
 
-size_t AcousticModemDriver::send_message(MsgType type, const float* data){
+size_t AcousticModemDriver::send_message(MsgType type,uint16_t id, const float* data){
     const size_t n= floats_for_type(type);
     size_t a=0;
     // TODO: implement for fourth type of data or default case (return;)
     if(n==0 || data==nullptr){
         return a;
     }
-    send_two_bytes(make_handshake(type)); // send the first packet of 16 bit containing [SYNC(4) | TYPE(2) | MSG_ID(10)]
+    send_two_bytes(make_handshake(type, id)); // send the first packet of 16 bit containing [SYNC(4) | TYPE(2) | MSG_ID(10)]
     for(int i=0;i<n;++i){
         std::string w0;
         std::string w1;
@@ -371,6 +377,7 @@ void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
     if (data.size() < 2) return; // in this case we lose one byte data TODO: fix
     uint16_t word = (static_cast<uint16_t>(data[1]) << 8) | data[0];
 
+    // need to use the tdmalink functions to make it work
     if(is_ack(word)){
         Ack a;
         a.msg_id=(word & 0x3FF);
