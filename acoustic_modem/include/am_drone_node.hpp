@@ -19,50 +19,30 @@
 
 class DroneNode : public rclcpp::Node {
    public:
-    explicit DroneNode();
-
+    DroneNode();
+    ~DroneNode();
    private:
     /**
      * initialize the connection by creating AcousticModemDriver object
      */
     void init_connection();
-
+    void setup_tdma();
     /**
      * Create the subscriber to the topic
      */
     void set_subscriber();
+    // needed to publish data received in a particular topic, for now for the drone not needed
+    void set_publisher();
+    void poll_modem();
+    void tx_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
 
-    /**
-     * Called every # second to send different messages to the other modem
-     * through acoustic communication
-     *
-     * TODO: fix logic, probably seconds not correct
-     */
-    void acoustic_callback();
-
-    /**
-     * the idea is this but it depends on what the data are and how we get them
-     * from the topic:
-     *
-     * we save te last string received and then send it using the timer with an
-     * interval
-     *
-     * To fix because we will probably lose information
-     *
-     * idea: queue for each new message in the topic and send them in order
-     * by giving each of them a sending time based on the length of the message
-     * ?
-     */
-    void data_callback();
-
-    /**
-     * subscriber to the data-topic, the type is now string so that
-     * it's easier with send_msg(string), can be changed
-     */
-    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_;
-    std::unique_ptr<AcousticModemDriver> drone_modem_;
-    std::string latest_;
+    rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr subscription_;
+    std::unique_ptr<AcousticModemDriver> driver_;
+    std::unique_ptr<TDMAManager> tdma_;
+    std::unique_ptr<TDMALink> link_;
     rclcpp::TimerBase::SharedPtr timer_;
+
+    std::string latest_;
 };
 
 #endif

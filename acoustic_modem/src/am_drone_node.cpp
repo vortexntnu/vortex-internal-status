@@ -1,18 +1,33 @@
 #include "am_drone_node.hpp"
+#include "tdma_link.hpp"
+#include "tdma_manager.hpp"
 
 DroneNode::DroneNode() : Node("drone_node") {
-    // TODO
-    set_subscriber();
+
     init_connection();
+    setup_tdma();
+    set_subscriber();
+    // not needed probably
+    set_publisher();
 
     timer_ = this->create_wall_timer(
-        5000ms, std::bind(&DroneNode::acoustic_callback, this));
+        200ms, std::bind(&DroneNode::poll_modem, this));
+
+    link_->start();
+
+    RCLCPP_INFO(this->get_logger(), "DroneNode started");
+}
+
+DroneNode::~DroneNode() {
+    if (link_) {
+        link_->stop();
+    }
 }
 
 void DroneNode::init_connection() {
     this->declare_parameter<std::string>("device");
     this->declare_parameter<int>("baudrate", 9600);
-    this->declare_parameter<int>("channel", 1);
+    this->declare_parameter<int>("channel", 1); 
     this->declare_parameter<int>("level", 4);
     this->declare_parameter<bool>("diagnostic", false);
     this->declare_parameter<double>("timeout", 0.5);
@@ -22,34 +37,90 @@ void DroneNode::init_connection() {
     int channel = this->get_parameter("channel").as_int();
     int level = this->get_parameter("level").as_int();
     bool diagnostic = this->get_parameter("diagnostic").as_bool();
-    float timeout =
-        static_cast<float>(this->get_parameter("timeout").as_double());
+    float timeout =static_cast<float>(this->get_parameter("timeout").as_double());
 
-    drone_modem_ = AcousticModemDriver(device, baudrate, channel, level,
+    driver_= std::make_unique<AcousticModemDriver>(device, baudrate, channel, level,
                                        diagnostic, timeout);
+}
+
+void DroneNode::setup_tdma(){
+    this->declare_parameter<int>("num_slots", 2);
+    this->declare_parameter<int>("my_slot", 0);
+    this->declare_parameter<int>("slot_duration_sec", 25);
+    this->declare_parameter<int>("guard_ms", 1000);
+
+    TDMAConfig cfg;
+    cfg.num_slots = static_cast<std::uint8_t>(this->get_parameter("num_slots").as_int());
+    cfg.my_slot = static_cast<std::uint8_t>(this->get_parameter("my_slot").as_int());
+    cfg.slot_duration = std::chrono::seconds(this->get_parameter("slot_duration_sec").as_int());
+    cfg.guard = std::chrono::milliseconds(this->get_parameter("guard_ms").as_int());
+
+    cfg.t0 = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+
+    tdma_=std::make_unique<TDMAManager>(cfg);
+    link_=std::make_unique<TDMALink>(*driver_,*tdma_);
+
 }
 
 void DroneNode::set_subscriber() {
     // Depends on the topic in which we will read the data
     subscription_ = this->create_subscription<std_msgs::msg::String>(
-        "data_topic", 10, std::bind(&DroneNode::data_callback), this,
+        "data_topic", 10, std::bind(&DroneNode::tx_callback), this,
         std::placeholders::_1);
 }
 
-void DroneNode::acoustic_callback() {
-    if (latest_.empty()) {
-        return;
+void DroneNode::tx_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg){
+    std::vector<float> payload(msg->data.begin(), msg->data.end());
+
+    MsgType type;
+
+    switch (payload.size()) {
+        case 2:
+            type = MsgType::Type_1;
+            break;
+
+        case 4:
+            type = MsgType::Type_2;
+            break;
+
+        case 5:
+            type = MsgType::Type_3;
+            break;
+
+        default:
+            RCLCPP_WARN(this->get_logger(),
+                        "Unsupported payload size: %zu floats",
+                        payload.size());
+            return;
     }
 
-    std::string payload;
-    payload.swap(latest_);
-    drone_modem_.send_msg(payload);
+
+    link_->enqueue(type, payload);
+    RCLCPP_INFO(this->get_logger(),"Enqueued outgoing acoustic message with %zu floats",payload.size());
+
 }
 
-void DroneNode::data_callback(
-    const std_msgs::msg::String::SharedPtr msg) const {
-    // TODO
-    latest_ = msg->data;
+void DroneNode::poll_modem(){
+    AcousticModemDriver::DecodedMessage msg;
+    while(driver_->try_pop_decoded(msg)){
+        link_->on_data_received(msg.type,msg.msg_id);
+
+        std_msgs::msg::Float32MultiArray out;
+        for (std::uint8_t i = 0; i < msg.n_floats; ++i) {
+            out.data.push_back(msg.floats[i]);
+        }
+        // TODO: here i can publish the data in a topic or i can just print them out or whatever
+        // Let's publish them for now
+        publisher_->publish(out);
+         RCLCPP_INFO(this->get_logger(),"Published received acoustic message, msg_id=%u", msg.msg_id);
+    }
+
+    AcousticModemDriver::Ack ack;
+    while(driver_->try_pop_ack(ack)){
+        link_->on_ack_received(ack.type,ack.msg_id);
+
+        RCLCPP_INFO(this->get_logger(),"ACK received, msg_id=%u", ack.msg_id);
+    }
 }
 
 int main(int argc, char *argv[]) {
