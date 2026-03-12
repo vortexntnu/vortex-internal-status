@@ -30,6 +30,12 @@ void TDMALink::on_data_received(MsgType type, uint16_t msg_id){
     pending_ack_=true;
     pending_ack_msg_id_=msg_id;
     pending_ack_type_=type;
+
+    if (msg_id == last_rx_msg_id_ && last_rx_valid_) {
+        return; // duplicate, ignore payload
+    }
+    last_rx_valid_=true;
+    last_rx_msg_id_ = msg_id;
 }
 
 void TDMALink::on_ack_received(MsgType type, uint16_t msg_id){

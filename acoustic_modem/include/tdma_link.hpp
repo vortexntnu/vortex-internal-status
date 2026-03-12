@@ -62,6 +62,10 @@ class TDMALink {
   uint16_t pending_ack_msg_id_{0};
   MsgType pending_ack_type_{};
 
+  // in case of ack lost we avoid sending the payload again by checking the last msg_id
+  uint16_t last_rx_msg_id_{0};
+  bool last_rx_valid_{false};
+
   std::chrono::seconds ack_timeout_{50};
   int max_retries_{3};
 };
