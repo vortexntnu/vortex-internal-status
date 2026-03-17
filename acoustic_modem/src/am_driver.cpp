@@ -14,10 +14,13 @@ AcousticModemDriver::AcousticModemDriver(const std::string& device,
                     level_(level),
                     diagnostic_(diagnostic) {
     msg_id=0;
+    
     this->open(device,baudrate);
+    std::cout<<"1"<<"\n";
     this->set_channel(channel);
+    std::cout<<"2"<<"\n";
     this->set_level(level);
-
+    
     // if (diagnostic) {
     //     this->set_diagnostic_mode();
     // } else {
