@@ -162,7 +162,7 @@ void AcousticModemDriver::rx_start_handshake(uint16_t hs_word){
 
 bool AcousticModemDriver::rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_t &out_msg_id,float *out_floats, uint8_t &inout_capacity, std::chrono::milliseconds timeout){
     auto now = std::chrono::steady_clock::now();
-    std::cout<<"ciao\n";
+    //std::cout<<"ciao\n";
     // timeout for incomplete message (the timeout is to be defined and if it is needed)
     if (rx.rx_receiving && (now - rx.rx_last_rx > timeout)) {
         rx_reset();
@@ -237,7 +237,7 @@ size_t AcousticModemDriver::send_two_bytes(std::string data) {
         // might use write() instead write_some()
         size_t bytes =m_serial_port.write_some(asio::buffer(buff.data(), 2));
         // 10bps
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         return bytes;
     }
 }
@@ -348,7 +348,7 @@ void AcousticModemDriver::start_async_read() {
         asio::buffer(m_recv_buffer),
         [this](std::error_code error, size_t bytes_transferred)
         {
-        std::cout<<bytes_transferred<<"toh\n";
+        std::cout<<bytes_transferred<<"\n";
         async_receive_handler(error, bytes_transferred);
         });
     
@@ -371,7 +371,7 @@ void AcousticModemDriver::async_receive_handler(const asio::error_code & error,s
 }
 
 void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
-    std::cout << "[DEBUG] read_callback got " << data.size() << " bytes\n";
+    //std::cout << "[DEBUG] read_callback got " << data.size() << " bytes\n";
     //std::lock_guard<std::mutex> lock(queue_mutex);
 
     if (data.size() < 2) return; // in this case we lose one byte data TODO: fix
@@ -390,8 +390,8 @@ void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
     }
 
     DecodedMessage msg_decoded{};
-    bool complete=rx_rebuild_word(word,msg_decoded.type,msg_decoded.msg_id,msg_decoded.floats,msg_decoded.n_floats,std::chrono::milliseconds(200));
-    std::cout<<complete;
+    bool complete=rx_rebuild_word(word,msg_decoded.type,msg_decoded.msg_id,msg_decoded.floats,msg_decoded.n_floats,std::chrono::milliseconds(1000));
+    //  std::cout<<complete;
     if (complete) {
         // we use the mutex because the decoded queue will be used by ros2 layer to publish in correct topic
         std::lock_guard<std::mutex> lock(decoded_mutex);

@@ -5,7 +5,6 @@
 #include <fstream>  // per scrivere su file
 #include <iostream>
 #include <mutex>
-#include <nlohmann/json.hpp>
 #include <optional>
 #include <queue>
 #include <string>
