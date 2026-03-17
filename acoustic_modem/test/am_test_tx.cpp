@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
 
   const std::string dev = argv[1];
 
-  int baud = 115200;
+  int baud = 9600;
   int channel = 1;
   int level = 4;
   bool diagnostic = false;
