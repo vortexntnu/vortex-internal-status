@@ -29,3 +29,18 @@ bool TDMAManager::tx_allowed(std::chrono::steady_clock::time_point now) const{
     }
     return true;
 }
+
+
+std::chrono::milliseconds TDMAManager::time_since_slot_start(std::chrono::steady_clock::time_point now) const{
+    auto elapsed=now-cfg.t0;
+    auto time_in_slot = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed % cfg.slot_duration);
+    return time_in_slot;
+}
+
+bool TDMAManager::is_my_slot(std::chrono::steady_clock::time_point now) const{
+    return (cfg.my_slot==current_slot(now));
+}
+
+bool TDMAManager::in_guard_time(std::chrono::steady_clock::time_point now) const{
+    return time_since_slot_start(now)<cfg.guard;
+}

@@ -11,6 +11,11 @@
 #include <thread>
 #include <vector>
 
+/**
+ * TODO: hybrid part, should allow to send only short packet, so maybe only max 2 floats
+ *       and ACKs. this is done in order to avoid exceeding the slot time
+ */
+
 struct LinkTxMessage {
   MsgType type;
   std::vector<float> payload;
