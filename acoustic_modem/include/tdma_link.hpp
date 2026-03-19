@@ -58,9 +58,19 @@ class TDMALink {
   int retry_count_{0};
 
   // ACK to send
-  bool pending_ack_{false};
-  uint16_t pending_ack_msg_id_{0};
-  MsgType pending_ack_type_{};
+  /**
+   * Done: we could need a queue and a struct for all the acks,
+   *       if the rx is fast enough(improbable) we could lose some ack becasue of overwriting
+   */
+  // bool pending_ack_{false};
+  // uint16_t pending_ack_msg_id_{0};
+  // MsgType pending_ack_type_{};
+
+  struct PendingAck {
+  MsgType type;
+  uint16_t msg_id;
+  };
+  std::queue<PendingAck> pending_acks_;
 
   // in case of ack lost we avoid sending the payload again by checking the last msg_id
   uint16_t last_rx_msg_id_{0};

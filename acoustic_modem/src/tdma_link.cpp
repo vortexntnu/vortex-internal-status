@@ -27,9 +27,11 @@ void TDMALink::enqueue(MsgType type, std::vector<float> payload){
 void TDMALink::on_data_received(MsgType type, uint16_t msg_id){
     // we use the mutex to avoid multiple acces to shared variables between rx_thread and worker thread
     std::lock_guard<std::mutex>lock(tx_mtx_);
-    pending_ack_=true;
-    pending_ack_msg_id_=msg_id;
-    pending_ack_type_=type;
+    // pending_ack_=true;
+    // pending_ack_msg_id_=msg_id;
+    // pending_ack_type_=type;
+
+    pending_acks_.push(PendingAck{type,msg_id});
 
     if (msg_id == last_rx_msg_id_ && last_rx_valid_) {
         return; // duplicate, ignore payload
@@ -53,12 +55,15 @@ void TDMALink::on_ack_received(MsgType type, uint16_t msg_id){
     }
 }
 
+
 void TDMALink::send_pending_ack(){
-    driver_.send_two_bytes(driver_.make_ack(pending_ack_type_,pending_ack_msg_id_));
+    // PRECONDITION: tx_mtx_ must already be locked
+    PendingAck ack=pending_acks_.front();
+    pending_acks_.pop();
 
-     std::cout << "[TDMA LINK] Sent ACK for msg_id=" << pending_ack_msg_id_ << "\n";
+    driver_.send_two_bytes(driver_.make_ack(ack.type,ack.msg_id));
 
-     pending_ack_=false;
+    std::cout << "[TDMA LINK] Sent ACK for msg_id=" << ack.msg_id << "\n";
 }
 
 void TDMALink::resend_last_message(){
@@ -85,7 +90,12 @@ void TDMALink::tx_worker(){
         {
             std::lock_guard<std::mutex>lock(tx_mtx_);
             if(tdma_.tx_allowed(now)){
-                if(pending_ack_){
+                /**
+                 * TODO: in this case we can transmit more than one ack for slot, 
+                 *       we can change it by putting a flag saying we already sent one, 
+                 *       to be checked with more testing in real time, now it works
+                 */
+                if(!pending_acks_.empty()){
                     send_pending_ack();
                 }
                 if(waiting_ack_){
