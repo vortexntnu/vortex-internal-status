@@ -19,6 +19,12 @@ sudo ip link set up vcan0
 
 > Note: This does not persist after reboot.
 
+## Setting Up an Actual CAN Interface
+Example of how to set up a CAN interface that uses CAN FD. Timing parameters needs to be configured to your own needs. These are the values we have used for the motor control unit. 
+```bash
+sudo ip link set can0 up type can bitrate 50000 sample-point 0.96875 dbitrate 2000000 dsample-point 0.875 fd on
+```
+
 ---
 
 ## Basic Asynchronous Receive Example - Counting Frames
