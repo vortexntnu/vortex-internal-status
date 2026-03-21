@@ -213,7 +213,7 @@ int main() {
                   << "  T" << THRUSTER_INDEX << "=" << pw << " µs\n";
         print_thruster_payload(payload);
 
-        if (can.send(THRUSTER_CAN_ID, payload, sizeof(payload), false) != can_status::OK) {
+        if (can.send(THRUSTER_CAN_ID, payload, sizeof(payload), true) != can_status::OK) {
             std::cerr << timestamp() << " ERROR: send failed at " << pw << " µs\n";
         }
 
@@ -232,7 +232,7 @@ int main() {
                   << "  T" << THRUSTER_INDEX << "=" << PWM_NEUTRAL << " µs (neutral)\n";
         print_thruster_payload(payload);
 
-        if (can.send(THRUSTER_CAN_ID, payload, sizeof(payload), false) != can_status::OK) {
+        if (can.send(THRUSTER_CAN_ID, payload, sizeof(payload), true) != can_status::OK) {
             std::cerr << timestamp() << " ERROR: send failed at neutral\n";
         }
     }
