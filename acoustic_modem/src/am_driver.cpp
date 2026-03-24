@@ -50,6 +50,30 @@ AcousticModemDriver::~AcousticModemDriver() {
     m_serial_port.close(error);
 }
 
+bool AcousticModemDriver::is_persistent(uint16_t w) const {
+    return (((w >> 12) & 0xF) == PERSISTENT_SYNC);
+}
+
+std::string AcousticModemDriver::make_persistent_cmd(PersistentCmd cmd){
+
+    uint16_t w = (uint16_t(PERSISTENT_SYNC) << 12) | (uint16_t(cmd) & 0X0FFF);
+
+    std::string s(2, '\0');
+    s[0] = static_cast<char>(w & 0xFF);
+    s[1] = static_cast<char>((w >> 8) & 0xFF);
+    return s;
+}
+
+bool AcousticModemDriver::consume_persistent(PersistentCmd& cmd){
+    std::lock_guard<std::mutex> lock(persistent_mutex_);
+    if (!new_persistent_available_ || !last_persistent_cmd_.has_value()) {
+        return false;
+    }
+    cmd = *last_persistent_cmd_;
+    new_persistent_available_ = false;
+    return true;
+}
+
 uint16_t AcousticModemDriver::reserve_msg_id() {
     uint16_t id = msg_id & 0x03FF;
     msg_id = (msg_id + 1) & 0x03FF;
@@ -173,15 +197,15 @@ bool AcousticModemDriver::rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_
     }
     rx.rx_last_rx= now;
 
-    if(is_handshake(w)){
-        // if the word is a handshake we start receiveing from the start
-        rx_start_handshake(w);
-        return false;
-    }
+
     if(!rx.rx_receiving){
+        if(is_handshake(w)){
+        // if the word is a handshake we start receiveing from the start
+            rx_start_handshake(w);
+        }
         return false;
     }
-    if(rx.rx_received_words>rx.rx_expected_words){
+    if(rx.rx_received_words>=rx.rx_expected_words){
         rx_reset();
         return false;
     }
@@ -377,19 +401,39 @@ void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
     //std::cout << "[DEBUG] read_callback got " << data.size() << " bytes\n";
     //std::lock_guard<std::mutex> lock(queue_mutex);
 
-    if (data.size() < 2) return; // in this case we lose one byte data TODO: fix
+    if (data.size() < 2) return; // TODO: the serial channel is byte stream, POSSIBLE BUG      
     uint16_t word = (static_cast<uint16_t>(data[1]) << 8) | data[0];
 
     // need to use the tdmalink functions to make it work
-    if(is_ack(word)){
-        Ack a;
-        a.msg_id=(word & 0x3FF);
-        a.type=MsgType((word >> 10) & 0x3);
-        {
-            std::lock_guard<std::mutex> lock(ack_mutex);
-            ack_queue.push(a);
+
+    // Important:
+    // ACK words are only detected when the receiver is idle.
+    // If we are currently reconstructing a message, all incoming words are treated
+    // as payload to avoid corrupting the message reconstruction.
+    // same process for Persistent mode, 
+    if(!rx.rx_receiving){
+        if(is_ack(word)){
+            Ack a;
+            a.msg_id=(word & 0x3FF);
+            a.type=MsgType((word >> 10) & 0x3);
+            {
+                std::lock_guard<std::mutex> lock(ack_mutex);
+                ack_queue.push(a);
+            }
+            return ;
         }
-        return ;
+        if(is_persistent(word)){
+            PersistentCmd cmd=static_cast<PersistentCmd>(word & 0x0FFF);
+            {
+                std::lock_guard<std::mutex> lock(persistent_mutex_);
+                if (new_persistent_available_ && last_persistent_cmd_ == cmd) {
+                    return;
+                }
+                last_persistent_cmd_ = cmd;
+                new_persistent_available_ = true;
+            }
+            return;
+        }
     }
 
     DecodedMessage msg_decoded{};

@@ -13,12 +13,11 @@
 #include <functional>
 #include <thread>
 
-enum class TxState{
-    SENDING,
-    WAIT_ACK,
-    IDLE,
+enum class PersistentCmd : uint16_t {
+    Surface = 1,
+    Abort   = 2,
+    Stop    = 3
 };
-
 
 enum class MsgType : uint8_t{
     Type_def=0,
@@ -72,6 +71,14 @@ class AcousticModemDriver {
                         int level,
                         bool diagnostic,
                         float timeout);
+
+
+
+    bool is_persistent(uint16_t w) const;
+
+    std::string make_persistent_cmd(PersistentCmd cmd);
+
+    bool consume_persistent(PersistentCmd& cmd);
 
 
     std::string make_ack(MsgType t, uint16_t msg_id);
@@ -280,6 +287,21 @@ class AcousticModemDriver {
     static constexpr uint8_t HANDSHAKE_SYNC = 0xA; //1010
 
     static constexpr uint8_t ACK_SYNC= 0xB;  //1011
+
+
+    /*
+    * Persistent commands are decoded at driver level, but they are not handled
+    * directly by the driver. The driver only exposes the latest received persistent
+    * command as a lightweight event.
+    *
+    * This keeps the driver independent from ROS2/application logic while still
+    * allowing the upper layer to react immediately and publish on the correct topic.
+    */
+    static constexpr uint8_t PERSISTENT_SYNC= 0xC;  //1100
+    std::optional<PersistentCmd> last_persistent_cmd_;
+    std::mutex persistent_mutex_;
+    bool new_persistent_available_ = false;
+
     // 10 bit for msg id, to avoid error caused by lag or delay (TODO: to check if it is necessary)
     uint16_t msg_id;
 
