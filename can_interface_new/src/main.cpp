@@ -57,9 +57,16 @@ std::string decode_pressure_sample(const uint8_t* data, size_t len) {
     return std::string(buffer);
 }
 
+std::string decode_leakage_alarm(const uint8_t* data, size_t len) {
+    (void)data;
+    (void)len;
+    return "LEAKAGE ALARM";
+}
+
 static void init_registry(CanRegistry& registry) {
     registry.add({0x46D, "Gripper Encoder angles", decode_encoder_angles});
     registry.add({0x780, "Pressure Sample", decode_pressure_sample});
+    registry.add({0x100, "Leakage Alarm", decode_leakage_alarm});
 }
 
 static void handle_frame(const canfd_frame& frame,
