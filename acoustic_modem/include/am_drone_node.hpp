@@ -37,6 +37,7 @@ class DroneNode : public rclcpp::Node {
     void tx_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
 
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr subscription_;
+    rclcpp::Publisher<std_msgs::msg::UInt16>::SharedPtr persistent_pub_;
     std::unique_ptr<AcousticModemDriver> driver_;
     std::unique_ptr<TDMAManager> tdma_;
     std::unique_ptr<TDMALink> link_;

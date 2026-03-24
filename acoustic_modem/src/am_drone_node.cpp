@@ -7,7 +7,6 @@ DroneNode::DroneNode() : Node("drone_node") {
     init_connection();
     setup_tdma();
     set_subscriber();
-    // not needed probably
     set_publisher();
 
     timer_ = this->create_wall_timer(
@@ -64,9 +63,12 @@ void DroneNode::setup_tdma(){
 
 void DroneNode::set_subscriber() {
     // Depends on the topic in which we will read the data
-    subscription_ = this->create_subscription<std_msgs::msg::String>(
+    subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>(
         "data_topic", 10, std::bind(&DroneNode::tx_callback), this,
         std::placeholders::_1);
+}
+void DroneNode::set_publisher(){
+    persistent_pub_ = this->create_publisher<std_msgs::msg::UInt16>("persistent_cmd_topic", 10);
 }
 
 void DroneNode::tx_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg){
@@ -100,6 +102,14 @@ void DroneNode::tx_callback(const std_msgs::msg::Float32MultiArray::SharedPtr ms
 
 }
 
+
+/*
+ * Persistent commands are received as standalone 16-bit control words and are
+ * decoded directly by the driver. In poll_modem(), we check whether a new
+ * persistent command has been received and, if so, publish it immediately on
+ * a dedicated ROS topic so the drone control logic can react without waiting
+ * for normal payload handling.
+ */
 void DroneNode::poll_modem(){
     AcousticModemDriver::DecodedMessage msg;
     while(driver_->try_pop_decoded(msg)){
@@ -120,6 +130,18 @@ void DroneNode::poll_modem(){
         link_->on_ack_received(ack.type,ack.msg_id);
 
         RCLCPP_INFO(this->get_logger(),"ACK received, msg_id=%u", ack.msg_id);
+    }
+
+    PersistentCmd cmd;
+    if(driver_->consume_persistent(cmd)){
+        std_msgs::msg::UInt16 out_cmd;
+        out_cmd.data = static_cast<std::uint16_t>(cmd);
+
+        persistent_pub_->publish(out_cmd);
+
+        RCLCPP_INFO(this->get_logger(),
+                    "Received persistent command: %u",
+                    static_cast<std::uint16_t>(cmd));
     }
 }
 
