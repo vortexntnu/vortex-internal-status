@@ -24,6 +24,17 @@ void TDMALink::enqueue(MsgType type, std::vector<float> payload){
     tx_queue.push(LinkTxMessage{type, payload});
 }
 
+void TDMALink::start_persistent_command(PersistentCmd cmd){
+    std::lock_guard<std::mutex> lock(tx_mtx_);
+    current_persistent_cmd_=cmd;
+    last_persistent_tx_=std::chrono::steady_clock::now()-std::chrono::milliseconds(2000);
+}
+
+void TDMALink::stop_persistent_command(){
+    std::lock_guard<std::mutex> lock(tx_mtx_);
+    current_persistent_cmd_.reset();
+}
+
 void TDMALink::on_data_received(MsgType type, uint16_t msg_id){
     // we use the mutex to avoid multiple acces to shared variables between rx_thread and worker thread
     std::lock_guard<std::mutex>lock(tx_mtx_);
@@ -98,20 +109,28 @@ void TDMALink::tx_worker(){
                 if(!pending_acks_.empty()){
                     send_pending_ack();
                 }
-                if(waiting_ack_){
-                    if(now-last_tx_time_>=ack_timeout_){
-                        if(retry_count_<max_retries_){
-                            resend_last_message();
-                        }else{
-                            waiting_ack_=false;
-                            retry_count_=0;
+                if(current_persistent_cmd_.has_value()){
+                    if(now-last_persistent_tx_>=std::chrono::milliseconds(2000)){
+                        driver_.send_two_bytes(driver_.make_persistent_cmd(*current_persistent_cmd_));
+                        last_persistent_tx_=now;
+                    }
+                }else{
+                    if(waiting_ack_){
+                        if(now-last_tx_time_>=ack_timeout_){
+                            if(retry_count_<max_retries_){
+                                resend_last_message();
+                            }else{
+                                waiting_ack_=false;
+                                retry_count_=0;
+                            }
                         }
                     }
-                }
-                if(!tx_queue.empty()){
-                    LinkTxMessage msg=tx_queue.front();
-                    tx_queue.pop();
-                    send_new_message(msg);
+                    // added !waiting_ack_ && just to be sure and check locally when i send
+                    if(!waiting_ack_ && !tx_queue.empty()){
+                        LinkTxMessage msg=tx_queue.front();
+                        tx_queue.pop();
+                        send_new_message(msg);
+                    }
                 }
             }
         }

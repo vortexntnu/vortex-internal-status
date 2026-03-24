@@ -16,6 +16,22 @@
  *       and ACKs. this is done in order to avoid exceeding the slot time
  */
 
+/*
+ * Persistent commands are handled separately from normal reliable messages.
+ *
+ * - Normal messages:
+ *   handshake + float payload + ACK/retransmission logic.
+ *
+ * - Persistent commands:
+ *   standalone 16-bit control words (e.g. SURFACE, ABORT, STOP)
+ *   transmitted periodically during the TDMA slot through the driver.
+ *
+ * While a persistent command is active, normal queued traffic is paused,
+ * but ACKs are still allowed to pass.
+ */
+
+
+
 struct LinkTxMessage {
   MsgType type;
   std::vector<float> payload;
@@ -34,6 +50,9 @@ class TDMALink {
 
   // this is the queue of the transmission if it's not right slot
   void enqueue(MsgType type, std::vector<float> payload);
+
+  void start_persistent_command(PersistentCmd cmd); // persistent TX
+  void stop_persistent_command();
 
   void on_data_received(MsgType type, uint16_t msg_id);
   void on_ack_received(MsgType type, uint16_t msg_id);
@@ -61,6 +80,9 @@ class TDMALink {
   LinkTxMessage last_sent_;
   std::chrono::steady_clock::time_point last_tx_time_;
   int retry_count_{0};
+
+  std::optional<PersistentCmd> current_persistent_cmd_;
+  std::chrono::steady_clock::time_point last_persistent_tx_;
 
   // ACK to send
   /**
