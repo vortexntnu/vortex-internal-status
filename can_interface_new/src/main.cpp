@@ -1,4 +1,6 @@
 #include <csignal>
+#include <cstdio>
+#include <cstring>
 #include <cstdint>
 #include <iostream>
 #include <linux/can.h>
@@ -42,8 +44,22 @@ std::string decode_encoder_angles(const uint8_t* data, size_t len) {
     return std::string(buffer);
 }
 
+std::string decode_pressure_sample(const uint8_t* data, size_t len) {
+    if (len < sizeof(double)) {
+        return "invalid length";
+    }
+
+    double pressure_hpa = 0.0;
+    std::memcpy(&pressure_hpa, data, sizeof(double));
+
+    char buffer[128];
+    std::snprintf(buffer, sizeof(buffer), "P=%.6f hPa", pressure_hpa);
+    return std::string(buffer);
+}
+
 static void init_registry(CanRegistry& registry) {
     registry.add({0x46D, "Gripper Encoder angles", decode_encoder_angles});
+    registry.add({0x780, "Pressure Sample", decode_pressure_sample});
 }
 
 static void handle_frame(const canfd_frame& frame,
