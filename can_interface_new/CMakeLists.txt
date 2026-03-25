@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Add your executable
-add_executable(can_interface src/main.cpp src/can_interface.cpp src/can_registry.cpp src/can_logger.cpp)
+add_executable(can_interface src/main.cpp src/can_interface.cpp src/can_registry.cpp src/can_logger.cpp src/can_decode.cpp)
 
 target_include_directories(can_interface PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
