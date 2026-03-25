@@ -59,6 +59,52 @@ std::string decode_encoder_angles(const uint8_t* data, size_t len) {
     return std::string(buffer);
 }
 
+std::string decode_motor_frames(const uint8_t* data, size_t len) {
+    if (len < 1) {
+        return "invalid length";
+    }
+
+    switch (data[0]) {
+        case 0x00: { // current measurements
+            if (len < 1 + 8 * sizeof(float)) {
+                return "current measurement frame is too short";
+            }
+            char buf[64 * sizeof(float)];
+            int offset = 0;
+            for (int i = 0; i < 8; i++) {
+                float val;
+                memcpy(&val, &data[1 + i * sizeof(float)], sizeof(float));
+                offset += std::snprintf(buf + offset, sizeof(buf) - offset, "I%d=%.3fA%s", i, val, i < 7 ? " " : "");
+            }
+            return buf;
+        }
+        case 0x01: { // FLT event
+            if (len < 2) {
+                return "FLT event frame is too short";
+            }
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "FLT ctx=0x%02X", data[1]);
+            return buf;
+        }
+        case 0x02: { // PGOOD event
+            if (len < 2) {
+                return "PGood event frame is too short";
+            }
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "PGOOD ctx=0x%02X", data[1]);
+            return buf;
+        }
+        case 0x03: { // Killswitch event
+            return "KILLSWITCH";
+        }
+        default: {
+            char buf[32];
+            snprintf(buf, sizeof(buf), "unknown type=0x%02X", data[0]);
+            return buf;
+        }
+    }
+}
+
 std::string decode_set_gripper_pwm(const uint8_t* data, size_t len) {
     uint16_t duty_cycle[NUM_ANGLES] = {0};
 
@@ -220,6 +266,7 @@ std::string decode_voltage(const uint8_t* data, size_t len) {
 
 static void init_registry(CanRegistry& registry) {
     registry.add({0x46D, "Gripper Encoder angles", decode_encoder_angles});
+    registry.add({0x45A, "Motor Controler Frame", decode_motor_frames});
     registry.add({CAN_VOLTAGE_ID, "BMS cell voltages", decode_voltage});
     registry.add({CAN_CURRENT_ID, "BMS current measurement", decode_current});
     registry.add({CAN_ALERT_PFA_1_ID, "BMS alert PFA1", decode_alert_pfa_1});
