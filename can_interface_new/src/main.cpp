@@ -2,6 +2,7 @@
 #include <csignal>
 #include <cstdint>
 #include <iostream>
+#include <cstring>
 
 #include "can_interface.hpp"
 #include "can_logger.hpp"
