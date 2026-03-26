@@ -23,14 +23,20 @@
 class BaseNode : public rclcpp::Node {
    public:
     explicit BaseNode();
+    ~BaseNode();
 
    private:
     /**
      * initialize the connection by creating AcousticModemDriver object
      */
     void init_connection();
+    void setup_tdma();
 
     void set_publishers();
+
+    void set_subscribers();
+
+    void persistent_callback(const std_msgs::msg::UInt16::SharedPtr msg);
 
     void poll_and_publish_rx();
 
@@ -38,7 +44,10 @@ class BaseNode : public rclcpp::Node {
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr data_2_;
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr data_3_;
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr data_0_;
+    rclcpp::Subscription<std_msgs::msg::UInt16>::SharedPtr persistent_sub_;
     std::unique_ptr<AcousticModemDriver> base_modem_;
+    std::unique_ptr<TDMAManager> tdma_;
+    std::unique_ptr<TDMALink> link_;
     // std::string latest_;
     rclcpp::TimerBase::SharedPtr timer_;
 };

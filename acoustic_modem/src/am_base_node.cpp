@@ -2,12 +2,26 @@
 
 BaseNode::BaseNode() : Node("base_node") {
     // TODO
-    set_publishers();
+    
     init_connection();
+    setup_tdma();
+    set_publishers();
+    set_subscribers();
 
     timer_ = this->create_wall_timer(
         std::chrono::milliseconds(1000), std::bind(&BaseNode::poll_and_publish_rx, this));
+
+    link_->start();
+
+    RCLCPP_INFO(this->get_logger(), "BaseNode started");
 }
+
+BaseNode::~BaseNode() {
+    if (link_) {
+        link_->stop();
+    }
+}
+
 
 void BaseNode::init_connection() {
     this->declare_parameter<std::string>("device");
@@ -29,6 +43,25 @@ void BaseNode::init_connection() {
                                       diagnostic, timeout);
 }
 
+void BaseNode::setup_tdma(){
+    this->declare_parameter<int>("num_slots", 2);
+    this->declare_parameter<int>("my_slot", 1);
+    this->declare_parameter<int>("slot_duration_sec", 25);
+    this->declare_parameter<int>("guard_ms", 1000);
+
+    TDMAConfig cfg;
+    cfg.num_slots = static_cast<std::uint8_t>(this->get_parameter("num_slots").as_int());
+    cfg.my_slot = static_cast<std::uint8_t>(this->get_parameter("my_slot").as_int());
+    cfg.slot_duration = std::chrono::seconds(this->get_parameter("slot_duration_sec").as_int());
+    cfg.guard = std::chrono::milliseconds(this->get_parameter("guard_ms").as_int());
+
+    cfg.t0 = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+
+    tdma_=std::make_unique<TDMAManager>(cfg);
+    link_=std::make_unique<TDMALink>(*base_modem_,*tdma_);
+
+}
+
 void BaseNode::set_publishers() {
     // we reserved 2 bit for the type of data so we'll have 4 types of data
     data_0_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("topic_0", 10);
@@ -37,10 +70,35 @@ void BaseNode::set_publishers() {
     data_3_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("topic_3", 10);
 }
 
+void BaseNode::set_subscribers() {
+    persistent_sub_ = this->create_subscription<std_msgs::msg::UInt16>(
+        "persistent",
+        10,
+        std::bind(&BaseNode::persistent_callback, this, std::placeholders::_1));
+}
+
+void BaseNode::persistent_callback(const std_msgs::msg::UInt16::SharedPtr msg) {
+    std::uint16_t value = msg->data;
+
+    if (value == 0) {
+        link_->stop_persistent_command();
+        RCLCPP_INFO(this->get_logger(), "Stopped persistent command");
+        return;
+    }
+
+    PersistentCmd cmd = static_cast<PersistentCmd>(value);
+
+    link_->start_persistent_command(cmd);
+
+    RCLCPP_INFO(this->get_logger(),
+                "Sent persistent command: %u",
+                static_cast<std::uint16_t>(cmd));
+}
 
 void BaseNode::poll_and_publish_rx() {
     AcousticModemDriver::DecodedMessage msg;
     while (base_modem_->try_pop_decoded(msg)) {
+        link_->on_data_received(msg.type,msg.msg_id);
         std_msgs::msg::Float32MultiArray out;
         for (std::uint8_t i = 0; i < msg.n_floats; ++i) {
             out.data.push_back(msg.floats[i]);
@@ -59,6 +117,22 @@ void BaseNode::poll_and_publish_rx() {
                 data_0_->publish(out); 
                 break;
         }
+    }
+    AcousticModemDriver::Ack ack;
+    while(base_modem_->try_pop_ack(ack)){
+        link_->on_ack_received(ack.type,ack.msg_id);
+
+        RCLCPP_INFO(this->get_logger(),"ACK received, msg_id=%u", ack.msg_id);
+    }
+
+    PersistentCmd cmd;
+    if(base_modem_->consume_persistent(cmd)){
+        //std_msgs::msg::UInt16 out_cmd;
+        //out_cmd.data = static_cast<std::uint16_t>(cmd);
+
+        //persistent_pub_->publish(out_cmd);
+
+        RCLCPP_INFO(this->get_logger(),"Received persistent command: %u", static_cast<std::uint16_t>(cmd));
     }
 }
 
