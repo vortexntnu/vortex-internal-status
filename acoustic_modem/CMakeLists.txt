@@ -64,7 +64,12 @@ install(
 #am_node
 #DESTINATION lib/${PROJECT_NAME}
 #)
-
+install(
+  TARGETS
+    am_base_node
+    am_drone_node
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
 
 install(
   DIRECTORY include/
