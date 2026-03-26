@@ -1,6 +1,4 @@
 #include "am_drone_node.hpp"
-#include "tdma_link.hpp"
-#include "tdma_manager.hpp"
 
 DroneNode::DroneNode() : Node("drone_node") {
 
@@ -10,7 +8,7 @@ DroneNode::DroneNode() : Node("drone_node") {
     set_publisher();
 
     timer_ = this->create_wall_timer(
-        200ms, std::bind(&DroneNode::poll_modem, this));
+        std::chrono::milliseconds(200), std::bind(&DroneNode::poll_modem, this));
 
     link_->start();
 
@@ -64,11 +62,12 @@ void DroneNode::setup_tdma(){
 void DroneNode::set_subscriber() {
     // Depends on the topic in which we will read the data
     subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>(
-        "data_topic", 10, std::bind(&DroneNode::tx_callback), this,
-        std::placeholders::_1);
+        "data_topic", 10, std::bind(&DroneNode::tx_callback, this,
+        std::placeholders::_1));
 }
 void DroneNode::set_publisher(){
     persistent_pub_ = this->create_publisher<std_msgs::msg::UInt16>("persistent_cmd_topic", 10);
+    publisher_=this->create_publisher<std_msgs::msg::Float32MultiArray>("not_necessary_topic",10);
 }
 
 void DroneNode::tx_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg){
@@ -139,9 +138,7 @@ void DroneNode::poll_modem(){
 
         persistent_pub_->publish(out_cmd);
 
-        RCLCPP_INFO(this->get_logger(),
-                    "Received persistent command: %u",
-                    static_cast<std::uint16_t>(cmd));
+        RCLCPP_INFO(this->get_logger(),"Received persistent command: %u", static_cast<std::uint16_t>(cmd));
     }
 }
 
