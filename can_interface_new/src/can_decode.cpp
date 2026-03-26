@@ -239,3 +239,21 @@ std::string decode_voltage(const uint8_t* data, size_t len) {
 }
 
 
+std::string decode_pressure_sample(const uint8_t* data, size_t len) {
+    if (len < sizeof(double)) {
+        return "invalid length";
+    }
+
+    double pressure_hpa = 0.0;
+    std::memcpy(&pressure_hpa, data, sizeof(double));
+
+    char buffer[128];
+    std::snprintf(buffer, sizeof(buffer), "P=%.6f hPa", pressure_hpa);
+    return std::string(buffer);
+}
+
+std::string decode_leakage_alarm(const uint8_t* data, size_t len) {
+    (void)data;
+    (void)len;
+    return "LEAKAGE ALARM";
+}

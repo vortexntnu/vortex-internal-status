@@ -52,5 +52,9 @@ std::string decode_temp(const uint8_t* data, size_t len);
 
 std::string decode_voltage(const uint8_t* data, size_t len);
 
+std::string decode_pressure_sample(const uint8_t* data, size_t len);
+
+std::string decode_leakage_alarm(const uint8_t* data, size_t len);
+
 
 #endif // !CAN_DECODE_HPP_
