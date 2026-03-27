@@ -65,6 +65,10 @@ int main() {
         return 1;
     }
 
+    uint8_t dummy = 0;
+    // start bms send
+    can.send(0x215, &dummy, 1);
+
     std::cout << "Listening on can0. Press Ctrl+C to stop.\n";
 
     while (g_running) {
@@ -80,6 +84,9 @@ int main() {
             break;
         }
     }
+
+    // stop bms send
+    can.send(0x216, &dummy, 1);
 
     logger.flush();
     std::cout << "Stopped. Log written to can_log.csv\n";
