@@ -1,20 +1,19 @@
 #include <linux/can.h>
 #include <csignal>
 #include <cstdint>
-#include <iostream>
 #include <cstring>
+#include <iostream>
 
+#include "can_decode.hpp"
 #include "can_interface.hpp"
 #include "can_logger.hpp"
 #include "can_registry.hpp"
-#include "can_decode.hpp"
 
 static volatile std::sig_atomic_t g_running = 1;
 
 void signal_handler(int) {
     g_running = 0;
 }
-
 
 static void init_registry(CanRegistry& registry) {
     registry.add({0x46D, "Gripper Encoder angles", decode_encoder_angles});
@@ -36,7 +35,9 @@ static void handle_frame(const canfd_frame& frame,
 
     // Placeholder timestamp for now.
     // Replace later with socket timestamp if you add recvmsg().
-    uint64_t ts_us = 0;
+    uint64_t ts_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                         std::chrono::steady_clock::now().time_since_epoch())
+                         .count();
 
     logger.log(ts_us, id, frame.len, frame.data);
 
