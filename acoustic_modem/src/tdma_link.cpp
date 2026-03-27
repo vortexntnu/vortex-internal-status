@@ -36,16 +36,11 @@ void TDMALink::stop_persistent_command(){
 }
 
 void TDMALink::on_data_received(MsgType type, uint16_t msg_id){
-    // we use the mutex to avoid multiple acces to shared variables between rx_thread and worker thread
     std::lock_guard<std::mutex>lock(tx_mtx_);
-    // pending_ack_=true;
-    // pending_ack_msg_id_=msg_id;
-    // pending_ack_type_=type;
-
     pending_acks_.push(PendingAck{type,msg_id});
 
     if (msg_id == last_rx_msg_id_ && last_rx_valid_) {
-        return; // duplicate, ignore payload
+        return;
     }
     last_rx_valid_=true;
     last_rx_msg_id_ = msg_id;
@@ -56,12 +51,9 @@ void TDMALink::on_ack_received(MsgType type, uint16_t msg_id){
     if(waiting_ack_ && waiting_msg_id_==msg_id){
         waiting_ack_=false;
         retry_count_=0;
-
-        // not necessary beacuse if waiting_ack is false these are not used but just to be precise:
         waiting_msg_id_=0;
         waiting_type_=MsgType{};
 
-        //debug
         std::cout << "[TDMA LINK] ACK received for msg_id=" << msg_id << "\n";
     }
 }
@@ -102,9 +94,9 @@ void TDMALink::tx_worker(){
             std::lock_guard<std::mutex>lock(tx_mtx_);
             if(tdma_.tx_allowed(now)){
                 /**
-                 * TODO: in this case we can transmit more than one ack for slot, 
-                 *       we can change it by putting a flag saying we already sent one, 
-                 *       to be checked with more testing in real time, now it works
+                 * in this case we can transmit more than one ack for slot, 
+                 * we can change it by putting a flag saying we already sent one, 
+                 * to be checked with more testing in real time, now it works
                  */
                 if(!pending_acks_.empty()){
                     send_pending_ack();
@@ -125,7 +117,6 @@ void TDMALink::tx_worker(){
                             }
                         }
                     }
-                    // added !waiting_ack_ && just to be sure and check locally when i send
                     if(!waiting_ack_ && !tx_queue.empty()){
                         LinkTxMessage msg=tx_queue.front();
                         tx_queue.pop();
