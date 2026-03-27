@@ -23,6 +23,7 @@ static void init_registry(CanRegistry& registry) {
     registry.add({CAN_ALERT_PFA_1_ID, "BMS alert PFA1", decode_alert_pfa_1});
     registry.add({CAN_ALERT_PFA_2_ID, "BMS alert PFA2", decode_alert_pfa_2});
     registry.add({CAN_ALERT_SSA_ID, "BMS alert SSA", decode_alert_ssa});
+    registry.add({CAN_TEMP_ID, "BMS Temparture", decode_temp});
     registry.add({0x780, "Pressure Sample", decode_pressure_sample});
     registry.add({0x100, "Leakage Alarm", decode_leakage_alarm});
 }
