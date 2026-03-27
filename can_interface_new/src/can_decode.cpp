@@ -171,19 +171,29 @@ std::string decode_alert_pfa_2(const uint8_t* data, size_t len) {
 }
 
 std::string decode_current(const uint8_t* data, size_t len) {
-    if (len < 2) {
+    if (len < 6) {
         return "invalid length";
     }
 
-    uint16_t raw = (static_cast<uint16_t>(data[1]) << 8) |
-                   static_cast<uint16_t>(data[0]);
+    // --- Decode 16-bit current ---
+    uint16_t raw_current = (static_cast<uint16_t>(data[1]) << 8) |
+                           static_cast<uint16_t>(data[0]);
 
-    int16_t current = static_cast<int16_t>(raw);
+    int16_t current = static_cast<int16_t>(raw_current);
 
-    char buffer[64];
+    // --- Decode 32-bit raw CC2 counts ---
+    uint32_t raw_counts = (static_cast<uint32_t>(data[5]) << 24) |
+                          (static_cast<uint32_t>(data[4]) << 16) |
+                          (static_cast<uint32_t>(data[3]) << 8)  |
+                          static_cast<uint32_t>(data[2]);
+
+    int32_t current_counts = static_cast<int32_t>(raw_counts);
+
+    char buffer[128];
     std::snprintf(buffer, sizeof(buffer),
-                  "current=%d mA",
-                  static_cast<int>(current));
+                  "current=%d mA, counts=%ld",
+                  static_cast<int>(current),
+                  static_cast<long>(current_counts));
 
     return std::string(buffer);
 }
