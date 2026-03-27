@@ -16,17 +16,9 @@ AcousticModemDriver::AcousticModemDriver(const std::string& device,
     msg_id=0;
     
     this->open(device,baudrate);
-    std::cout<<"1"<<"\n";
     this->set_channel(channel);
-    std::cout<<"2"<<"\n";
     this->set_level(level);
     
-    // if (diagnostic) {
-    //     this->set_diagnostic_mode();
-    // } else {
-    //     this->reset_diagnostic_mode();
-    // }
-
     std::cout << "[INFO] Modem initialized on device " << this->device_
               << ", channel " << channel << ", level " << level
               << ", diagnostic mode = " << std::boolalpha << diagnostic
@@ -189,7 +181,6 @@ void AcousticModemDriver::rx_start_handshake(uint16_t hs_word){
 
 bool AcousticModemDriver::rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_t &out_msg_id,float *out_floats, uint8_t &inout_capacity, std::chrono::milliseconds timeout){
     auto now = std::chrono::steady_clock::now();
-    //std::cout<<"ciao\n";
     // timeout for incomplete message (the timeout is to be defined and if it is needed)
     if (rx.rx_receiving && (now - rx.rx_last_rx > timeout)) {
         rx_reset();
@@ -230,7 +221,6 @@ bool AcousticModemDriver::rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_
 bool AcousticModemDriver::try_pop_decoded(DecodedMessage& msg){
     std::lock_guard<std::mutex> lock(decoded_mutex);
     if(decoded_queue.empty()){
-        //std::cout<<"no\n";
         return false;
     }
     msg = decoded_queue.front();
@@ -375,7 +365,6 @@ void AcousticModemDriver::start_async_read() {
         asio::buffer(m_recv_buffer),
         [this](std::error_code error, size_t bytes_transferred)
         {
-        std::cout<<bytes_transferred<<"\n";
         async_receive_handler(error, bytes_transferred);
         });
     
@@ -398,9 +387,6 @@ void AcousticModemDriver::async_receive_handler(const asio::error_code & error,s
 }
 
 void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
-    //std::cout << "[DEBUG] read_callback got " << data.size() << " bytes\n";
-    //std::lock_guard<std::mutex> lock(queue_mutex);
-
     if (data.size() < 2) return; // TODO: the serial channel is byte stream, POSSIBLE BUG      
     uint16_t word = (static_cast<uint16_t>(data[1]) << 8) | data[0];
 
@@ -438,7 +424,6 @@ void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
 
     DecodedMessage msg_decoded{};
     bool complete=rx_rebuild_word(word,msg_decoded.type,msg_decoded.msg_id,msg_decoded.floats,msg_decoded.n_floats,std::chrono::milliseconds(1000));
-    //  std::cout<<complete;
     if (complete) {
         // we use the mutex because the decoded queue will be used by ros2 layer to publish in correct topic
         std::lock_guard<std::mutex> lock(decoded_mutex);
@@ -499,93 +484,3 @@ void AcousticModemDriver::close() {
     asio::error_code error;
     m_serial_port.close(error);
 }
-
-
-/**
-std::optional<std::vector<uint8_t>> AcousticModemDriver::read_packet() {
-    // time duration to wait for a valid packet
-    const auto time_duration = std::chrono::seconds(2);
-    auto start_time = std::chrono::steady_clock::now();
-
-    std::vector<uint8_t> buffer(64);  // 64 can be modified, didn't put 18 to
-                                      // avoid cutting diagnostic packet in half
-
-    while ((std::chrono::steady_clock::now() - start_time) < time_duration) {
-      std::vector<uint8_t> temp_buffer(
-          64);  // use this to store temporanealy buffer data, to add them to
-                // buffer
-      size_t bytes_read = port_->receive(temp_buffer);
-      temp_buffer.resize(
-          bytes_read);  // resize the temp_buffer to the actual byte read
-
-      if (bytes_read == 0) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(100));
-          continue;
-      }
-
-      buffer.insert(buffer.end(), temp_buffer.begin(), temp_buffer.end());
-
-      std::cout << "Buffer size: " << bytes_read << " bytes, "
-                << "Buffer: " << std::string(buffer.begin(), buffer.end())
-                << std::endl;
-
-      if (bytes_read <= 17) {  // look for diagnostic packet
-          std::this_thread::sleep_for(std::chrono::milliseconds(100));
-          continue;
-      }
-      auto begin =
-          find(buffer.begin(), buffer.end(), '$');  // returns iterator
-      auto end = find(buffer.begin(), buffer.end(), '\n');
-
-      if (begin != buffer.end() &&
-          end != buffer.end()) {  // create and return diagnostic packet
-          std::vector<uint8_t> packet(begin, end + 1);
-          std::cout << "Returning packet: "
-                    << std::string(packet.begin(), packet.end()) << std::endl;
-          return packet;
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  }
-    if (buffer.size() == 0) {
-        std::cout << "Returning no data";
-        return std::nullopt;
-    } else {
-        std::cout << "Returning buffer: "
-                  << std::string(buffer.begin(), buffer.end()) << std::endl;
-        return buffer;
-    }
-}
-*/
-
-// std::optional<DiagnosticData> AcousticModemDriver::request_report(
-//     float overall_timeout,
-//     std::optional<std::string> filename) {
-//     this->get_report();
-
-//     std::optional<std::vector<uint8_t>> packet = this->read_packet(); // è read packet non decode
-//     if (!(packet.has_value())) {
-//         std::cout << "Packet is empty" << std::endl;
-//         return std::nullopt;
-//     }
-//     // std::vector<uint8_t>
-//     // packet_cast=static_cast<std::vector<uint8_t>>(*packet);
-//     std::cout << "Returning packet of length: "
-//               << std::string((*packet).begin(), (*packet).end()).length()
-//               << std::endl;
-
-//     std::optional<DiagnosticData> report = this->decode_packet(*packet);
-//     if (!(report.has_value())) {
-//         std::cout << "Failed to decode the packet." << std::endl;
-//         return std::nullopt;
-//     }
-//     // DiagnosticData report_cast=static_cast<DiagnosticData>(*report);
-//     this->update_state_from_report(*report);
-
-//     // TODO? implement saving report in json file
-//     if (filename.has_value()) {
-//         // TODO
-//     }
-
-//     return *report;
-// }
-
