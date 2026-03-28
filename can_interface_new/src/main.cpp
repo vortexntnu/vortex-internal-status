@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <iomanip>
+#include <sstream>
 
 #include "can_decode.hpp"
 #include "can_interface.hpp"
@@ -52,14 +54,29 @@ static void handle_frame(const canfd_frame& frame,
     }
 }
 
+
+std::string make_log_filename() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+
+    std::tm tm{};
+    localtime_r(&time, &tm);  // thread-safe on Linux
+
+    std::ostringstream oss;
+    oss << "can_log_"
+        << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S")
+        << ".csv";
+
+    return oss.str();
+}
+
 int main() {
     std::signal(SIGINT, signal_handler);
 
     CanRegistry registry;
     init_registry(registry);
 
-    FastCsvLogger logger("can_log.csv", 4096);
-
+    FastCsvLogger logger(make_log_filename().c_str(), 4096);
     can_interface can;
     can_status status = can.init("can0");
     if (status != can_status::OK) {
