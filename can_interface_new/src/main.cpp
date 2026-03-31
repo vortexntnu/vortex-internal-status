@@ -5,6 +5,8 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <chrono>
+#include <string>
 
 #include "can_decode.hpp"
 #include "can_interface.hpp"
@@ -15,6 +17,38 @@ static volatile std::sig_atomic_t g_running = 1;
 
 void signal_handler(int) {
     g_running = 0;
+}
+
+struct ProgramOptions {
+    bool print = false;
+    std::string can_interface_name = "can0";
+};
+
+static ProgramOptions parse_args(int argc, char* argv[]) {
+    ProgramOptions opts;
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+
+        if (arg == "--print" || arg == "-p") {
+            opts.print = true;
+        } else if ((arg == "--interface" || arg == "-i") && i + 1 < argc) {
+            opts.can_interface_name = argv[++i];
+        } else if (arg == "--help" || arg == "-h") {
+            std::cout
+                << "Usage: " << argv[0] << " [--print] [--interface can0]\n"
+                << "  --print, -p        Print decoded frames to stdout\n"
+                << "  --interface, -i    CAN interface name (default: can0)\n"
+                << "  --help, -h         Show this help\n";
+            std::exit(0);
+        } else {
+            std::cerr << "Unknown argument: " << arg << "\n";
+            std::cerr << "Use --help for usage.\n";
+            std::exit(1);
+        }
+    }
+
+    return opts;
 }
 
 static void init_registry(CanRegistry& registry) {
@@ -30,72 +64,86 @@ static void init_registry(CanRegistry& registry) {
     registry.add({0x100, "Leakage Alarm", decode_leakage_alarm});
 }
 
+std::string make_log_filename() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+
+    std::tm tm{};
+    localtime_r(&time, &tm);
+
+    std::ostringstream oss;
+    oss << "can_log_" << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S") << ".csv";
+    return oss.str();
+}
+
 static void handle_frame(const canfd_frame& frame,
                          FastCsvLogger& logger,
-                         const CanRegistry& registry) {
-    uint32_t id = (frame.can_id & CAN_EFF_FLAG) ? (frame.can_id & CAN_EFF_MASK)
-                                                : (frame.can_id & CAN_SFF_MASK);
+                         const CanRegistry& registry,
+                         bool print_enabled) {
+    uint32_t id = (frame.can_id & CAN_EFF_FLAG)
+                      ? (frame.can_id & CAN_EFF_MASK)
+                      : (frame.can_id & CAN_SFF_MASK);
 
-    // Placeholder timestamp for now.
-    // Replace later with socket timestamp if you add recvmsg().
     uint64_t ts_us = std::chrono::duration_cast<std::chrono::microseconds>(
                          std::chrono::steady_clock::now().time_since_epoch())
                          .count();
 
+    // Always log
     logger.log(ts_us, id, frame.len, frame.data);
+
+    // Only print when enabled
+    if (!print_enabled) {
+        return;
+    }
 
     const CanMessageDef* def = registry.find(id);
     if (def) {
         std::string decoded = def->decode(frame.data, frame.len);
 
         std::cout << "ID=0x" << std::hex << id << std::dec
-                  << " LEN=" << static_cast<int>(frame.len) << " " << def->name
-                  << " | " << decoded << '\n';
+                  << " LEN=" << static_cast<int>(frame.len) << " "
+                  << def->name << " | " << decoded << '\n';
+    } else {
+        std::cout << "ID=0x" << std::hex << id << std::dec
+                  << " LEN=" << static_cast<int>(frame.len)
+                  << " UNKNOWN\n";
     }
 }
 
-
-std::string make_log_filename() {
-    auto now = std::chrono::system_clock::now();
-    auto time = std::chrono::system_clock::to_time_t(now);
-
-    std::tm tm{};
-    localtime_r(&time, &tm);  // thread-safe on Linux
-
-    std::ostringstream oss;
-    oss << "can_log_"
-        << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S")
-        << ".csv";
-
-    return oss.str();
-}
-
-int main() {
+int main(int argc, char* argv[]) {
     std::signal(SIGINT, signal_handler);
+    std::signal(SIGTERM, signal_handler);
+
+    ProgramOptions opts = parse_args(argc, argv);
 
     CanRegistry registry;
     init_registry(registry);
 
     FastCsvLogger logger(make_log_filename().c_str(), 4096);
+
     can_interface can;
-    can_status status = can.init("can0");
+    can_status status = can.init(opts.can_interface_name.c_str());
     if (status != can_status::OK) {
-        std::cerr << "Failed to init can0\n";
+        std::cerr << "Failed to init " << opts.can_interface_name << "\n";
         return 1;
     }
 
     uint8_t dummy = 0;
-    // start bms send
+
+    // Start BMS send
     can.send(0x215, &dummy, 1);
 
-    std::cout << "Listening on can0. Press Ctrl+C to stop.\n";
+    if (opts.print) {
+        std::cout << "Listening on " << opts.can_interface_name
+                  << ". Press Ctrl+C to stop.\n";
+    }
 
     while (g_running) {
         canfd_frame frame{};
 
         status = can.receive(frame, 1000);
         if (status == can_status::OK) {
-            handle_frame(frame, logger, registry);
+            handle_frame(frame, logger, registry, opts.print);
         } else if (status == can_status::ERR_RECEIVE) {
             continue;
         } else {
@@ -104,10 +152,14 @@ int main() {
         }
     }
 
-    // stop bms send
+    // Stop BMS send
     can.send(0x216, &dummy, 1);
 
     logger.flush();
-    std::cout << "Stopped. Log written to can_log.csv\n";
+
+    if (opts.print) {
+        std::cout << "Stopped.\n";
+    }
+
     return 0;
 }
