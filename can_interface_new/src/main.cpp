@@ -64,6 +64,7 @@ static void init_registry(CanRegistry& registry) {
     registry.add({0x100, "Leakage Alarm", decode_leakage_alarm});
 }
 
+
 std::string make_log_filename() {
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);
@@ -72,7 +73,10 @@ std::string make_log_filename() {
     localtime_r(&time, &tm);
 
     std::ostringstream oss;
-    oss << "can_log_" << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S") << ".csv";
+    oss << "/var/log/can/can_log_"
+        << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S")
+        << ".csv";
+
     return oss.str();
 }
 
