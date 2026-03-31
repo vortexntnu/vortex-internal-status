@@ -4,33 +4,39 @@
 #include <cstdint>
 #include <cstring>
 #include <ctime>
+#include <fstream>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 using asio::io_context;
 using asio::serial_port;
 
 static constexpr uint8_t UART_START_BYTE = 0xAA;
 static constexpr std::size_t READ_CHUNK_SIZE = 256;
-static constexpr std::size_t MAX_PAYLOAD_SIZE = 255;
+static constexpr uint8_t MAX_PAYLOAD_SIZE = 255;
 
-// Set this to whatever MSG_CURRENT_MEASUREMENTS is in your embedded code.
 static constexpr uint8_t MSG_FLT_EVENT = 0x10;
 static constexpr uint8_t MSG_PGOOD_EVENT = 0x11;
 static constexpr uint8_t MSG_KILLSWITCH_EVENT = 0x12;
 static constexpr uint8_t MSG_CURRENT_MEASUREMENTS = 0x13;
 
-#include <array>
-#include <cstdint>
-#include <cstring>
-#include <optional>
-
 struct ChannelEvent {
     uint8_t channel = 0;
     uint8_t code = 0;
+};
+
+struct Frame {
+    uint8_t msg_id = 0;
+    uint8_t length = 0;
+    std::vector<uint8_t> payload;
+    uint8_t checksum = 0;
 };
 
 static std::string make_timestamp() {
@@ -44,8 +50,8 @@ static std::string make_timestamp() {
     localtime_r(&t, &tm);
 
     std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S") << "." << std::setw(3)
-        << std::setfill('0') << ms.count();
+    oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S") << "."
+        << std::setw(3) << std::setfill('0') << ms.count();
     return oss.str();
 }
 
@@ -57,11 +63,147 @@ static void log_error(const std::string& message) {
     std::cerr << "[" << make_timestamp() << "] [ERROR] " << message << "\n";
 }
 
-struct Frame {
-    uint8_t msg_id = 0;
-    uint8_t length = 0;
-    std::vector<uint8_t> payload;
-    uint8_t checksum = 0;
+static std::string message_name(uint8_t msg_id) {
+    switch (msg_id) {
+        case MSG_FLT_EVENT:
+            return "FLT_EVENT";
+        case MSG_PGOOD_EVENT:
+            return "PGOOD_EVENT";
+        case MSG_KILLSWITCH_EVENT:
+            return "KILLSWITCH_EVENT";
+        case MSG_CURRENT_MEASUREMENTS:
+            return "CURRENT_MEASUREMENTS";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+static std::string payload_to_hex(const std::vector<uint8_t>& payload) {
+    std::ostringstream oss;
+    for (std::size_t i = 0; i < payload.size(); ++i) {
+        if (i != 0) {
+            oss << ' ';
+        }
+        oss << "0x"
+            << std::hex << std::setw(2) << std::setfill('0')
+            << static_cast<int>(payload[i]);
+    }
+    return oss.str();
+}
+
+class CsvLogger {
+   public:
+    explicit CsvLogger(const std::string& log_dir = "/home/pi/can_logger/logs") {
+        std::filesystem::create_directories(log_dir);
+        const std::string filename = make_log_filename(log_dir);
+        out_.open(filename, std::ios::out | std::ios::app);
+        if (!out_) {
+            throw std::runtime_error("Failed to open CSV log file: " + filename);
+        }
+
+        out_ << "timestamp,msg_id_hex,msg_name,status,channel,code_hex,"
+                "i0,i1,i2,i3,i4,i5,i6,i7,raw_payload\n";
+        out_.flush();
+
+        log_info("CSV logging to " + filename);
+    }
+
+    void log_event(uint8_t msg_id,
+                   const std::string& status,
+                   std::optional<uint8_t> channel,
+                   std::optional<uint8_t> code,
+                   const std::vector<uint8_t>& payload) {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        out_ << csv_escape(make_timestamp()) << ','
+             << csv_escape(to_hex_byte(msg_id)) << ','
+             << csv_escape(message_name(msg_id)) << ','
+             << csv_escape(status) << ','
+             << csv_escape(channel ? std::to_string(*channel) : "") << ','
+             << csv_escape(code ? to_hex_byte(*code) : "") << ','
+             << ",,,,,,,,"  // i0..i7 empty
+             << csv_escape(payload_to_hex(payload))
+             << '\n';
+
+        out_.flush();
+    }
+
+    void log_currents(uint8_t msg_id,
+                      const std::string& status,
+                      const std::array<float, 8>& currents,
+                      const std::vector<uint8_t>& payload) {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        out_ << csv_escape(make_timestamp()) << ','
+             << csv_escape(to_hex_byte(msg_id)) << ','
+             << csv_escape(message_name(msg_id)) << ','
+             << csv_escape(status) << ','
+             << ",,";
+
+        for (std::size_t i = 0; i < currents.size(); ++i) {
+            out_ << currents[i];
+            out_ << ',';
+        }
+
+        out_ << csv_escape(payload_to_hex(payload)) << '\n';
+        out_.flush();
+    }
+
+    void log_raw(uint8_t msg_id,
+                 const std::string& status,
+                 const std::vector<uint8_t>& payload) {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        out_ << csv_escape(make_timestamp()) << ','
+             << csv_escape(to_hex_byte(msg_id)) << ','
+             << csv_escape(message_name(msg_id)) << ','
+             << csv_escape(status) << ','
+             << ",,"
+             << ",,,,,,,,"
+             << csv_escape(payload_to_hex(payload))
+             << '\n';
+
+        out_.flush();
+    }
+
+   private:
+    static std::string make_log_filename(const std::string& log_dir) {
+        const auto now = std::chrono::system_clock::now();
+        const auto t = std::chrono::system_clock::to_time_t(now);
+
+        std::tm tm{};
+        localtime_r(&t, &tm);
+
+        std::ostringstream oss;
+        oss << log_dir << "/serial_log_"
+            << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S")
+            << ".csv";
+        return oss.str();
+    }
+
+    static std::string csv_escape(const std::string& value) {
+        std::string out = "\"";
+        for (char c : value) {
+            if (c == '"') {
+                out += "\"\"";
+            } else {
+                out += c;
+            }
+        }
+        out += "\"";
+        return out;
+    }
+
+    static std::string to_hex_byte(uint8_t value) {
+        std::ostringstream oss;
+        oss << "0x"
+            << std::hex << std::uppercase << std::setw(2)
+            << std::setfill('0') << static_cast<int>(value);
+        return oss.str();
+    }
+
+    std::ofstream out_;
+    std::mutex mutex_;
 };
 
 static uint8_t compute_checksum(uint8_t msg_id,
@@ -94,25 +236,6 @@ static bool decode_current_measurements(const Frame& frame,
     return true;
 }
 
-// static bool decode_current_measurements(const Frame& frame, std::array<float,
-// 8>& currents) {
-//     if (frame.msg_id != MSG_CURRENT_MEASUREMENTS) {
-//         return false;
-//     }
-//
-//     if (frame.length != 8 * sizeof(float)) {
-//         return false;
-//     }
-//
-//     for (std::size_t i = 0; i < 8; ++i) {
-//         std::memcpy(&currents[i],
-//                     &frame.payload[i * sizeof(float)],
-//                     sizeof(float));
-//     }
-//
-//     return true;
-// }
-
 static bool decode_flt_event(const Frame& frame, ChannelEvent& event) {
     if (frame.msg_id != MSG_FLT_EVENT) {
         return false;
@@ -124,7 +247,6 @@ static bool decode_flt_event(const Frame& frame, ChannelEvent& event) {
 
     event.channel = frame.payload[0];
     event.code = frame.payload[1];
-
     return event.code == 0x01;
 }
 
@@ -139,7 +261,6 @@ static bool decode_pgood_event(const Frame& frame, ChannelEvent& event) {
 
     event.channel = frame.payload[0];
     event.code = frame.payload[1];
-
     return event.code == 0x02;
 }
 
@@ -153,6 +274,9 @@ static bool decode_killswitch_event(const Frame& frame) {
 
 class SerialFrameDecoder {
    public:
+    explicit SerialFrameDecoder(CsvLogger& csv_logger)
+        : csv_logger_(csv_logger) {}
+
     void append(const uint8_t* data, std::size_t length) {
         buffer_.insert(buffer_.end(), data, data + length);
         process_buffer();
@@ -161,12 +285,10 @@ class SerialFrameDecoder {
    private:
     void process_buffer() {
         while (true) {
-            // Need at least: start + msg_id + length + checksum
             if (buffer_.size() < 4) {
                 return;
             }
 
-            // Find start byte
             auto start_it =
                 std::find(buffer_.begin(), buffer_.end(), UART_START_BYTE);
             if (start_it == buffer_.end()) {
@@ -174,7 +296,6 @@ class SerialFrameDecoder {
                 return;
             }
 
-            // Drop garbage before start byte
             if (start_it != buffer_.begin()) {
                 buffer_.erase(buffer_.begin(), start_it);
             }
@@ -219,58 +340,28 @@ class SerialFrameDecoder {
                 std::ostringstream oss;
                 oss << "Checksum error. Received: 0x" << std::hex
                     << std::setw(2) << std::setfill('0')
-                    << static_cast<int>(frame.checksum) << ", expected: 0x"
+                    << static_cast<int>(frame.checksum)
+                    << ", expected: 0x"
                     << std::setw(2) << static_cast<int>(expected);
                 log_error(oss.str());
 
-                // Resync by discarding just the start byte and trying again
+                csv_logger_.log_raw(frame.msg_id, "CHECKSUM_ERROR", frame.payload);
+
                 buffer_.erase(buffer_.begin());
                 continue;
             }
 
             handle_frame(frame);
-
-            // Remove processed frame
             buffer_.erase(buffer_.begin(), buffer_.begin() + full_frame_size);
         }
     }
-    //
-    // void handle_frame(const Frame& frame) {
-    //     {
-    //         std::ostringstream oss;
-    //         oss << "Valid frame received: msg_id=0x"
-    //             << std::hex << std::setw(2) << std::setfill('0')
-    //             << static_cast<int>(frame.msg_id)
-    //             << std::dec
-    //             << ", length=" << static_cast<int>(frame.length);
-    //         log_info(oss.str());
-    //     }
-    //
-    //     if (frame.msg_id == MSG_CURRENT_MEASUREMENTS) {
-    //         std::array<float, 8> currents{};
-    //         if (decode_current_measurements(frame, currents)) {
-    //             for (std::size_t i = 0; i < currents.size(); ++i) {
-    //                 std::ostringstream oss;
-    //                 oss << "Current measurement I[" << i << "] = " <<
-    //                 currents[i]; log_info(oss.str());
-    //             }
-    //         }
-    //     } else {
-    //         std::ostringstream oss;
-    //         oss << "Payload bytes:";
-    //         for (uint8_t b : frame.payload) {
-    //             oss << " 0x"
-    //                 << std::hex << std::setw(2) << std::setfill('0')
-    //                 << static_cast<int>(b);
-    //         }
-    //         log_info(oss.str());
-    //     }
-    // }
+
     void handle_frame(const Frame& frame) {
         {
             std::ostringstream oss;
-            oss << "Valid frame received: msg_id=0x" << std::hex << std::setw(2)
-                << std::setfill('0') << static_cast<int>(frame.msg_id)
+            oss << "Valid frame received: msg_id=0x"
+                << std::hex << std::setw(2) << std::setfill('0')
+                << static_cast<int>(frame.msg_id)
                 << std::dec << ", length=" << static_cast<int>(frame.length);
             log_info(oss.str());
         }
@@ -281,12 +372,20 @@ class SerialFrameDecoder {
                 if (decode_flt_event(frame, event)) {
                     std::ostringstream oss;
                     oss << "FLT event: channel="
-                        << static_cast<int>(event.channel) << ", code=0x"
+                        << static_cast<int>(event.channel)
+                        << ", code=0x"
                         << std::hex << std::setw(2) << std::setfill('0')
                         << static_cast<int>(event.code);
                     log_info(oss.str());
+
+                    csv_logger_.log_event(frame.msg_id,
+                                          "OK",
+                                          event.channel,
+                                          event.code,
+                                          frame.payload);
                 } else {
                     log_info("Invalid FLT event frame");
+                    csv_logger_.log_raw(frame.msg_id, "INVALID_FLT_EVENT", frame.payload);
                 }
                 break;
             }
@@ -296,12 +395,20 @@ class SerialFrameDecoder {
                 if (decode_pgood_event(frame, event)) {
                     std::ostringstream oss;
                     oss << "PGOOD event: channel="
-                        << static_cast<int>(event.channel) << ", code=0x"
+                        << static_cast<int>(event.channel)
+                        << ", code=0x"
                         << std::hex << std::setw(2) << std::setfill('0')
                         << static_cast<int>(event.code);
                     log_info(oss.str());
+
+                    csv_logger_.log_event(frame.msg_id,
+                                          "OK",
+                                          event.channel,
+                                          event.code,
+                                          frame.payload);
                 } else {
                     log_info("Invalid PGOOD event frame");
+                    csv_logger_.log_raw(frame.msg_id, "INVALID_PGOOD_EVENT", frame.payload);
                 }
                 break;
             }
@@ -309,8 +416,10 @@ class SerialFrameDecoder {
             case MSG_KILLSWITCH_EVENT: {
                 if (decode_killswitch_event(frame)) {
                     log_info("Killswitch event received");
+                    csv_logger_.log_event(frame.msg_id, "OK", std::nullopt, std::nullopt, frame.payload);
                 } else {
                     log_info("Invalid killswitch event frame");
+                    csv_logger_.log_raw(frame.msg_id, "INVALID_KILLSWITCH_EVENT", frame.payload);
                 }
                 break;
             }
@@ -324,27 +433,35 @@ class SerialFrameDecoder {
                             << "] = " << currents[i];
                         log_info(oss.str());
                     }
+
+                    csv_logger_.log_currents(frame.msg_id, "OK", currents, frame.payload);
                 } else {
                     log_info("Invalid current measurements frame");
+                    csv_logger_.log_raw(frame.msg_id, "INVALID_CURRENT_MEASUREMENTS", frame.payload);
                 }
                 break;
             }
 
             default: {
                 std::ostringstream oss;
-                oss << "Unknown message ID 0x" << std::hex << std::setw(2)
-                    << std::setfill('0') << static_cast<int>(frame.msg_id)
+                oss << "Unknown message ID 0x"
+                    << std::hex << std::setw(2) << std::setfill('0')
+                    << static_cast<int>(frame.msg_id)
                     << ", payload bytes:";
                 for (uint8_t b : frame.payload) {
-                    oss << " 0x" << std::hex << std::setw(2)
+                    oss << " 0x"
+                        << std::hex << std::setw(2)
                         << std::setfill('0') << static_cast<int>(b);
                 }
                 log_info(oss.str());
+
+                csv_logger_.log_raw(frame.msg_id, "UNKNOWN_MESSAGE_ID", frame.payload);
                 break;
             }
         }
     }
 
+    CsvLogger& csv_logger_;
     std::vector<uint8_t> buffer_;
 };
 
@@ -352,8 +469,9 @@ class SerialReceiver {
    public:
     SerialReceiver(io_context& io,
                    const std::string& port_name,
-                   unsigned int baud_rate)
-        : serial_(io), decoder_() {
+                   unsigned int baud_rate,
+                   CsvLogger& csv_logger)
+        : serial_(io), decoder_(csv_logger) {
         serial_.open(port_name);
         serial_.set_option(serial_port::baud_rate(baud_rate));
         serial_.set_option(serial_port::character_size(8));
@@ -406,7 +524,8 @@ int main(int argc, char* argv[]) {
 
     try {
         io_context io;
-        SerialReceiver receiver(io, port_name, baud_rate);
+        CsvLogger csv_logger("/home/pi/can_logger/logs");
+        SerialReceiver receiver(io, port_name, baud_rate, csv_logger);
         receiver.start();
         io.run();
     } catch (const std::exception& e) {
