@@ -1,5 +1,5 @@
-#include "am_driver.hpp"
 #include "tdma_manager.hpp"
+#include "am_driver_iface.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -33,7 +33,7 @@ struct LinkTxMessage {
 class TDMALink {
     
   public:
-  TDMALink(AcousticModemDriver& driver, TDMAManager& tdma);
+  TDMALink(IAcousticModemDriver& driver, TDMAManager& tdma);
   ~TDMALink();
   void start();
   void stop();
@@ -52,8 +52,8 @@ class TDMALink {
   void resend_last_message();
   void send_pending_ack();
 
-  AcousticModemDriver& driver_;
-  TDMAManager tdma_;
+  IAcousticModemDriver& driver_;
+  TDMAManager& tdma_;
 
   std::atomic<bool> running_{false};
   std::thread tx_thread_;

@@ -1,6 +1,6 @@
 #include "tdma_link.hpp"
 
-TDMALink::TDMALink(AcousticModemDriver& driver, TDMAManager& tdma): driver_(driver), tdma_(tdma){}
+TDMALink::TDMALink(IAcousticModemDriver& driver, TDMAManager& tdma): driver_(driver), tdma_(tdma){}
 
 TDMALink::~TDMALink(){
     stop();
@@ -71,6 +71,7 @@ void TDMALink::send_pending_ack(){
 
 void TDMALink::resend_last_message(){
     driver_.send_message(waiting_type_,waiting_msg_id_,last_sent_.payload.data());
+    std::cout<<"resend message"<<"\n";
     last_tx_time_=std::chrono::steady_clock::now();
     retry_count_++;
 }
