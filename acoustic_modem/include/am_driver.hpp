@@ -1,6 +1,8 @@
 #ifndef AM_DRIVER_HPP
 #define AM_DRIVER_HPP
 
+#include "am_driver_iface.hpp"
+#include "am_types.hpp"
 #include <chrono>
 #include <fstream>  // per scrivere su file
 #include <iostream>
@@ -13,19 +15,19 @@
 #include <functional>
 #include <thread>
 
-enum class PersistentCmd : uint16_t {
-    Surface = 1,
-    Abort   = 2,
-    Stop    = 3
-};
+// enum class PersistentCmd : uint16_t {
+//     Surface = 1,
+//     Abort   = 2,
+//     Stop    = 3
+// };
 
-enum class MsgType : uint8_t{
-    Type_def=0,
-    Type_1 = 1,
-    Type_2 = 2,
-    Type_3 = 3,
-    Type_4 = 4,
-};
+// enum class MsgType : uint8_t{
+//     Type_def=0,
+//     Type_1 = 1,
+//     Type_2 = 2,
+//     Type_3 = 3,
+//     Type_4 = 4,
+// };
 
 struct DiagnosticData {
     uint8_t TR_BLOCK[2];  // 6 bits will be used by the packet header
@@ -45,7 +47,7 @@ struct DiagnosticData {
     uint8_t POWER_LEVEL : 2;
 };
 
-class AcousticModemDriver {
+class AcousticModemDriver : public IAcousticModemDriver {
     public:
     AcousticModemDriver();
 
@@ -58,11 +60,7 @@ class AcousticModemDriver {
     std::string make_persistent_cmd(PersistentCmd cmd);
     bool consume_persistent(PersistentCmd& cmd);
 
-    // ACK
-    struct Ack {
-        MsgType type;
-        uint16_t msg_id;
-    };
+
     std::string make_ack(MsgType t, uint16_t msg_id);
     bool is_ack(uint16_t w) const;
     uint16_t reserve_msg_id();
@@ -84,12 +82,6 @@ class AcousticModemDriver {
     void rx_start_handshake(uint16_t hs_word);
     void rx_reset();
     bool rx_rebuild_word(uint16_t w, MsgType &out_type, uint16_t &out_msg_id, float *out_floats, uint8_t &inout_capacity, std::chrono::milliseconds timeout);
-    struct DecodedMessage {
-        MsgType type;
-        uint16_t msg_id;
-        float floats[10];
-        uint8_t n_floats;
-    };
     bool try_pop_decoded(DecodedMessage& msg);
     void read_callback(std::vector<uint8_t>& data);
 
