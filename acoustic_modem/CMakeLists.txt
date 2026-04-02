@@ -25,6 +25,7 @@ add_library(${PROJECT_NAME} SHARED
   src/am_driver.cpp
   src/tdma_link.cpp
   src/tdma_manager.cpp
+  src/am_driver_split.cpp
   )
 
 
