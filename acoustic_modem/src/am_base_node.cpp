@@ -1,8 +1,6 @@
 #include "am_base_node.hpp"
 
 BaseNode::BaseNode() : Node("base_node") {
-    // TODO
-    
     init_connection();
     setup_tdma();
     set_publishers();
@@ -24,23 +22,36 @@ BaseNode::~BaseNode() {
 
 
 void BaseNode::init_connection() {
-    this->declare_parameter<std::string>("device");
+    this->declare_parameter<std::string>("device", "");
+    this->declare_parameter<std::string>("tx_device", "");
+    this->declare_parameter<std::string>("rx_device", "");
     this->declare_parameter<int>("baudrate", 9600);
     this->declare_parameter<int>("channel", 1);
     this->declare_parameter<int>("level", 4);
     this->declare_parameter<bool>("diagnostic", false);
     this->declare_parameter<double>("timeout", 0.5);
+    this->declare_parameter<bool>("split_mode",false);
 
-    std::string device = this->get_parameter("device").as_string();
     int baudrate = this->get_parameter("baudrate").as_int();
     int channel = this->get_parameter("channel").as_int();
     int level = this->get_parameter("level").as_int();
     bool diagnostic = this->get_parameter("diagnostic").as_bool();
     float timeout =
         static_cast<float>(this->get_parameter("timeout").as_double());
+    bool split=this->get_parameter("split_mode").as_bool();
+    
+    if (!split) {
+        std::string device = this->get_parameter("device").as_string();
 
-    base_modem_ = std::make_unique<AcousticModemDriver>(device, baudrate, channel, level,
-                                      diagnostic, timeout);
+        driver_ = std::make_unique<AcousticModemDriver>(
+            device, baudrate, channel, level, diagnostic, timeout);
+    } else {
+        std::string tx_device = this->get_parameter("tx_device").as_string();
+        std::string rx_device = this->get_parameter("rx_device").as_string();
+
+        driver_ = std::make_unique<AcousticModemDriverSplit>(
+            tx_device, rx_device, baudrate, channel, level, diagnostic, timeout);   
+    }
 }
 
 void BaseNode::setup_tdma(){
@@ -58,7 +69,7 @@ void BaseNode::setup_tdma(){
     cfg.t0 = std::chrono::steady_clock::now() + std::chrono::seconds(5);
 
     tdma_=std::make_unique<TDMAManager>(cfg);
-    link_=std::make_unique<TDMALink>(*base_modem_,*tdma_);
+    link_=std::make_unique<TDMALink>(*driver_,*tdma_);
 
 }
 
@@ -96,8 +107,8 @@ void BaseNode::persistent_callback(const std_msgs::msg::UInt16::SharedPtr msg) {
 }
 
 void BaseNode::poll_and_publish_rx() {
-    AcousticModemDriver::DecodedMessage msg;
-    while (base_modem_->try_pop_decoded(msg)) {
+    DecodedMessage msg;
+    while (driver_->try_pop_decoded(msg)) {
         link_->on_data_received(msg.type,msg.msg_id);
         std_msgs::msg::Float32MultiArray out;
         for (std::uint8_t i = 0; i < msg.n_floats; ++i) {
@@ -118,15 +129,15 @@ void BaseNode::poll_and_publish_rx() {
                 break;
         }
     }
-    AcousticModemDriver::Ack ack;
-    while(base_modem_->try_pop_ack(ack)){
+    Ack ack;
+    while(driver_->try_pop_ack(ack)){
         link_->on_ack_received(ack.type,ack.msg_id);
 
         RCLCPP_INFO(this->get_logger(),"ACK received, msg_id=%u", ack.msg_id);
     }
 
     PersistentCmd cmd;
-    if(base_modem_->consume_persistent(cmd)){
+    if(driver_->consume_persistent(cmd)){
         //std_msgs::msg::UInt16 out_cmd;
         //out_cmd.data = static_cast<std::uint16_t>(cmd);
 

@@ -22,22 +22,36 @@ DroneNode::~DroneNode() {
 }
 
 void DroneNode::init_connection() {
-    this->declare_parameter<std::string>("device");
+    this->declare_parameter<std::string>("device", "");
+    this->declare_parameter<std::string>("tx_device", "");
+    this->declare_parameter<std::string>("rx_device", "");
     this->declare_parameter<int>("baudrate", 9600);
     this->declare_parameter<int>("channel", 1); 
     this->declare_parameter<int>("level", 4);
     this->declare_parameter<bool>("diagnostic", false);
     this->declare_parameter<double>("timeout", 0.5);
+    this->declare_parameter<bool>("split_mode",false);
 
     std::string device = this->get_parameter("device").as_string();
     int baudrate = this->get_parameter("baudrate").as_int();
     int channel = this->get_parameter("channel").as_int();
     int level = this->get_parameter("level").as_int();
     bool diagnostic = this->get_parameter("diagnostic").as_bool();
-    float timeout =static_cast<float>(this->get_parameter("timeout").as_double());
+    float timeout =static_cast<float>(this->get_parameter("timeout").as_double());    
+    bool split=this->get_parameter("split_mode").as_bool();
+    
+    if (!split) {
+        std::string device = this->get_parameter("device").as_string();
 
-    driver_= std::make_unique<AcousticModemDriver>(device, baudrate, channel, level,
-                                       diagnostic, timeout);
+        driver_ = std::make_unique<AcousticModemDriver>(
+            device, baudrate, channel, level, diagnostic, timeout);
+    } else {
+        std::string tx_device = this->get_parameter("tx_device").as_string();
+        std::string rx_device = this->get_parameter("rx_device").as_string();
+
+        driver_ = std::make_unique<AcousticModemDriverSplit>(
+            tx_device, rx_device, baudrate, channel, level, diagnostic, timeout);   
+    }
 }
 
 void DroneNode::setup_tdma(){
@@ -110,7 +124,7 @@ void DroneNode::tx_callback(const std_msgs::msg::Float32MultiArray::SharedPtr ms
  * for normal payload handling.
  */
 void DroneNode::poll_modem(){
-    AcousticModemDriver::DecodedMessage msg;
+    DecodedMessage msg;
     while(driver_->try_pop_decoded(msg)){
         link_->on_data_received(msg.type,msg.msg_id);
 
@@ -124,7 +138,7 @@ void DroneNode::poll_modem(){
          RCLCPP_INFO(this->get_logger(),"Published received acoustic message, msg_id=%u", msg.msg_id);
     }
 
-    AcousticModemDriver::Ack ack;
+    Ack ack;
     while(driver_->try_pop_ack(ack)){
         link_->on_ack_received(ack.type,ack.msg_id);
 

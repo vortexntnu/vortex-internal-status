@@ -7,7 +7,9 @@
 #include <std_msgs/msg/u_int16.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include "am_driver.hpp"
+#include "am_driver_split.hpp"
 #include "tdma_link.hpp"
+#include "am_driver_iface.hpp"
 
 /**
  * Creating two nodes, one for each system
@@ -42,7 +44,7 @@ class DroneNode : public rclcpp::Node {
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr subscription_;
     rclcpp::Publisher<std_msgs::msg::UInt16>::SharedPtr persistent_pub_;
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr publisher_;
-    std::unique_ptr<AcousticModemDriver> driver_;
+    std::unique_ptr<IAcousticModemDriver> driver_;
     std::unique_ptr<TDMAManager> tdma_;
     std::unique_ptr<TDMALink> link_;
     rclcpp::TimerBase::SharedPtr timer_;

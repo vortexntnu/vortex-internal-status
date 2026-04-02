@@ -8,6 +8,8 @@
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include "am_driver.hpp"
 #include "tdma_link.hpp"
+#include "am_driver_split.hpp"
+#include "am_driver_iface.hpp"
 
 /**
  * Creating two nodes, one for each system
@@ -45,7 +47,7 @@ class BaseNode : public rclcpp::Node {
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr data_3_;
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr data_0_;
     rclcpp::Subscription<std_msgs::msg::UInt16>::SharedPtr persistent_sub_;
-    std::unique_ptr<AcousticModemDriver> base_modem_;
+    std::unique_ptr<IAcousticModemDriver> driver_;
     std::unique_ptr<TDMAManager> tdma_;
     std::unique_ptr<TDMALink> link_;
     // std::string latest_;
