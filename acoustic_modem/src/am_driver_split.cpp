@@ -82,7 +82,7 @@ size_t AcousticModemDriverSplit::send_two_bytes(std::string data) {
         // might use write() instead write_some()
         size_t bytes =tx_serial_port_.write_some(asio::buffer(buff.data(), 2));
         // 10bps
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
         return bytes;
     }
 }
@@ -236,6 +236,7 @@ size_t AcousticModemDriverSplit::send_message(MsgType type,uint16_t id, const fl
         a+=send_two_bytes(w0);
         std::this_thread::sleep_for(std::chrono::milliseconds(1700)); // we could implement it similar to send_msg
         a+=send_two_bytes(w1);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1700));
     }
     return a;
 }
