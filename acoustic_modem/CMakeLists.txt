@@ -13,8 +13,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(serial_driver REQUIRED)
-find_package(io_context REQUIRED)
+
 
 
 include_directories(include)
