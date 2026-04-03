@@ -9,6 +9,8 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(vortex_msgs REQUIRED)
+find_package(spdlog REQUIRED)
+find_package(fmt REQUIRED)
 
 include_directories(include)
 
@@ -18,14 +20,16 @@ add_executable(acoustics_interface
   src/can_interface.cpp
 )
 
-ament_target_dependencies(acoustics_interface
+ament_target_dependencies(acoustics_interface 
   rclcpp
   std_msgs
   vortex_msgs
+  spdlog
+  fmt
 )
 
 
-target_link_libraries(acoustics_interface)
+target_link_libraries(acoustics_interface fmt::fmt)
 
 install(TARGETS
 
