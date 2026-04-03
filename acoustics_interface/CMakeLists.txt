@@ -20,31 +20,29 @@ add_executable(acoustics_interface
   src/can_interface.cpp
 )
 
-ament_target_dependencies(acoustics_interface 
+ament_target_dependencies(acoustics_interface
   rclcpp
   std_msgs
   vortex_msgs
-  spdlog
-  fmt
 )
 
-
-target_link_libraries(acoustics_interface fmt::fmt)
+target_link_libraries(acoustics_interface
+  spdlog::spdlog
+  fmt::fmt
+)
 
 install(TARGETS
-
-DESTINATION lib/${PROJECT_NAME}
+  acoustics_interface
+  DESTINATION lib/${PROJECT_NAME}
 )
-
-
 
 install(
   DIRECTORY include/
   DESTINATION include
 )
 
-install(DIRECTORY
-  launch
+install(
+  DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}/
 )
 
