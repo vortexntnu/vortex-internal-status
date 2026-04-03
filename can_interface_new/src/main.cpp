@@ -67,7 +67,7 @@ static void init_registry(CanRegistry& registry) {
 
 
 std::string make_log_filename() {
-    const std::string log_dir = "/home/vortex/can_logger/logs/";
+    const std::string log_dir = "/home/vortex/can_logger/";
 
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);

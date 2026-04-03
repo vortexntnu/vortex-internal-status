@@ -93,7 +93,7 @@ static std::string payload_to_hex(const std::vector<uint8_t>& payload) {
 class CsvLogger {
    public:
     explicit CsvLogger(
-        const std::string& log_dir = "/home/pi/can_logger/logs") {
+        const std::string& log_dir = "/home/pi/can_logger") {
         std::filesystem::create_directories(log_dir);
         const std::string filename = make_log_filename(log_dir);
         out_.open(filename, std::ios::out | std::ios::app);
