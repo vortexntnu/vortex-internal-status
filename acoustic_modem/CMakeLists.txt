@@ -33,8 +33,6 @@ add_library(${PROJECT_NAME} SHARED
 ament_target_dependencies(${PROJECT_NAME}
   rclcpp
   std_msgs
-  serial_driver
-  io_context
 )
 
 add_executable(am_base_node
