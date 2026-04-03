@@ -67,8 +67,8 @@ void TDMALink::send_pending_ack(){
 
     driver_.send_two_bytes(driver_.make_ack(ack.type,ack.msg_id));
     std::this_thread::sleep_for(std::chrono::milliseconds(1600));
-
-    std::cout << "[TDMA LINK] Sent ACK for msg_id=" << ack.msg_id << "\n";
+    auto logger = rclcpp::get_logger("acoustic_modem_driver");
+    RCLCPP_INFO(logger, "SENT ACK");
 }
 
 void TDMALink::resend_last_message(){

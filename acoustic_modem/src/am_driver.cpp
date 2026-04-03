@@ -256,7 +256,7 @@ size_t AcousticModemDriver::send_two_bytes(std::string data) {
         // might use write() instead write_some()
         size_t bytes =m_serial_port.write_some(asio::buffer(buff.data(), 2));
         // 10bps
-        s
+        
         return bytes;
     }
 }
