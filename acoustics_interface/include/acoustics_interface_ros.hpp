@@ -5,7 +5,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "acoustics_interface_driver.hpp"
-#include "custom_msgs/msg/bearing_measurement.hpp"
+#include "vortex_msgs/msg/bearing_measurement.hpp"
 
 class AcousticsRosNode : public rclcpp::Node {
 public:

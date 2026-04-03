@@ -3,7 +3,7 @@
 AcousticsInterfaceDriver::AcousticsInterfaceDriver() {}
 
 can_status AcousticsInterfaceDriver::init_can() {
-    if (can_.init("can0")) {
+    if (can_.init("can0") != can_status::OK) {
         return can_status::ERR_NOT_INITIALIZED;
     }
 
