@@ -426,7 +426,7 @@ void AcousticModemDriverSplit::read_callback(std::vector<uint8_t>& data) {
                 {
                     std::lock_guard<std::mutex> lock(persistent_mutex_);
                     if (new_persistent_available_ && last_persistent_cmd_ == cmd) {
-                        return;
+                        continue;
                     }
                     last_persistent_cmd_ = cmd;
                     new_persistent_available_ = true;
@@ -435,7 +435,7 @@ void AcousticModemDriverSplit::read_callback(std::vector<uint8_t>& data) {
             }
         }
         DecodedMessage msg_decoded{};
-        bool complete=rx_rebuild_word(word,msg_decoded.type,msg_decoded.msg_id,msg_decoded.floats,msg_decoded.n_floats,std::chrono::milliseconds(1000));
+        bool complete=rx_rebuild_word(word,msg_decoded.type,msg_decoded.msg_id,msg_decoded.floats,msg_decoded.n_floats,std::chrono::milliseconds(3000));
         if (complete) {
             // we use the mutex because the decoded queue will be used by ros2 layer to publish in correct topic
             std::lock_guard<std::mutex> lock(decoded_mutex);
