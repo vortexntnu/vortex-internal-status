@@ -14,6 +14,7 @@ include_directories(include)
 add_executable(acoustics_interface
   src/acoustics_interface_driver.cpp
   src/acoustics_interface_ros.cpp
+  src/can_interface.cpp
 )
 
 ament_target_dependencies(acoustics_interface
