@@ -8,6 +8,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(vortex_msgs REQUIRED)
 
 include_directories(include)
 
@@ -20,6 +21,7 @@ add_executable(acoustics_interface
 ament_target_dependencies(acoustics_interface
   rclcpp
   std_msgs
+  vortex_msgs
 )
 
 
