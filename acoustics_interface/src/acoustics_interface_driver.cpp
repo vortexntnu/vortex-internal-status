@@ -1,9 +1,11 @@
-#include "acoustics_interface_driver.hpp"
+#include "acoustics_interface.hpp"
+
+#include <cstring>
 
 AcousticsInterfaceDriver::AcousticsInterfaceDriver() {}
 
 can_status AcousticsInterfaceDriver::init_can() {
-    if (can_.init("can0") != can_status::OK) {
+    if (can_.init("can0")) {
         return can_status::ERR_NOT_INITIALIZED;
     }
 
@@ -40,4 +42,25 @@ can_status AcousticsInterfaceDriver::read_acoustics(AcousticsData& data) {
     }
 
     return can_status::OK;
+}
+
+can_status AcousticsInterfaceDriver::start_async_read(
+    std::function<void(const AcousticsData&, can_status)> callback)
+{
+    return can_.start_async_receive(
+        [this, callback](const struct canfd_frame& frame, can_status status) {
+            if (status != can_status::OK) {
+                callback(AcousticsData{}, status);
+                return;
+            }
+
+            AcousticsData data{};
+            if (!decode_frame(frame, data)) {
+                callback(AcousticsData{}, can_status::ERR_RECEIVE);
+                return;
+            }
+
+            callback(data, can_status::OK);
+        }
+    );
 }
