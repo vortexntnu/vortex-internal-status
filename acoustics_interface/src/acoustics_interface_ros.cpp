@@ -7,7 +7,7 @@
 AcousticsRosNode::AcousticsRosNode()
 : Node("acoustics_ros_node")
 {
-    publisher_ = this->create_publisher<custom_msgs::msg::BearingMeasurement>(
+    publisher_ = this->create_publisher<vortex_msgs::msg::BearingMeasurement>(
         "acoustics/bearing_measurement", 10);
 
     can_status status = driver_.init_can();
@@ -37,7 +37,7 @@ void AcousticsRosNode::acoustics_callback(const AcousticsData& data, can_status 
         return;
     }
 
-    custom_msgs::msg::BearingMeasurement msg;
+    vortex_msgs::msg::BearingMeasurement msg;
 
     msg.bearing.header.stamp = this->now();
     msg.bearing.header.frame_id = "acoustics";
