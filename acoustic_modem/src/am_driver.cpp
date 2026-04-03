@@ -1,6 +1,6 @@
 #include "am_driver.hpp"
 #include <utility>
-
+#include "rclcpp/rclcpp.hpp"
 AcousticModemDriver::AcousticModemDriver(const std::string& device,
                                          int baudrate,
                                          int channel,
@@ -149,13 +149,14 @@ size_t AcousticModemDriver::send_message(MsgType type,uint16_t id, const float* 
     if(n==0 || data==nullptr){
         return a;
     }
-    send_two_bytes(make_handshake(type, id)); // send the first packet of 16 bit containing [SYNC(4) | TYPE(2) | MSG_ID(10)]
+    send_two_bytes(make_handshake(type, id));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1700)); // send the first packet of 16 bit containing [SYNC(4) | TYPE(2) | MSG_ID(10)]
     for(int i=0;i<n;++i){
         std::string w0;
         std::string w1;
         float_to_word(data[i], w0, w1);
         a+=send_two_bytes(w0);
-        std::this_thread::sleep_for(std::chrono::milliseconds(20)); // we could implement it similar to send_msg
+        std::this_thread::sleep_for(std::chrono::milliseconds(1700)); // we could implement it similar to send_msg
         a+=send_two_bytes(w1);
     }
     return a;
@@ -387,9 +388,13 @@ void AcousticModemDriver::async_receive_handler(const asio::error_code & error,s
 }
 
 void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
+    auto logger = rclcpp::get_logger("acoustic_modem_driver");
+
     rx_byte_buffer.insert(rx_byte_buffer.end(),data.begin(),data.end());
     while(rx_byte_buffer.size()>=2){
+
         uint16_t word = (static_cast<uint16_t>(rx_byte_buffer[1]) << 8) | rx_byte_buffer[0];
+        RCLCPP_INFO(logger,"Word: %u", word);
         rx_byte_buffer.erase(rx_byte_buffer.begin(),rx_byte_buffer.begin()+2);
         if(!rx.rx_receiving){
             if(is_ack(word)){

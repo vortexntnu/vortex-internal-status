@@ -1,4 +1,5 @@
 #include "tdma_link.hpp"
+#include <rclcpp/rclcpp.hpp>
 
 TDMALink::TDMALink(IAcousticModemDriver& driver, TDMAManager& tdma): driver_(driver), tdma_(tdma){}
 
@@ -65,6 +66,7 @@ void TDMALink::send_pending_ack(){
     pending_acks_.pop();
 
     driver_.send_two_bytes(driver_.make_ack(ack.type,ack.msg_id));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1600));
 
     std::cout << "[TDMA LINK] Sent ACK for msg_id=" << ack.msg_id << "\n";
 }
@@ -103,7 +105,7 @@ void TDMALink::tx_worker(){
                     send_pending_ack();
                 }
                 if(current_persistent_cmd_.has_value()){
-                    if(now-last_persistent_tx_>=std::chrono::milliseconds(2000)){
+                    if(now-last_persistent_tx_>=std::chrono::milliseconds(2200)){
                         driver_.send_two_bytes(driver_.make_persistent_cmd(*current_persistent_cmd_));
                         last_persistent_tx_=now;
                     }
@@ -119,7 +121,11 @@ void TDMALink::tx_worker(){
                         }
                     }
                     if(!waiting_ack_ && !tx_queue.empty()){
+                        auto logger = rclcpp::get_logger("acoustic_modem_driver");
                         LinkTxMessage msg=tx_queue.front();
+                        for (size_t i = 0; i < msg.payload.size(); ++i) {
+                            RCLCPP_INFO(logger, "  -> float[%zu] = %f", i, msg.payload[i]);
+                        }
                         tx_queue.pop();
                         send_new_message(msg);
                     }

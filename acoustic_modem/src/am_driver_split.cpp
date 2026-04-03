@@ -228,12 +228,13 @@ size_t AcousticModemDriverSplit::send_message(MsgType type,uint16_t id, const fl
         return a;
     }
     send_two_bytes(make_handshake(type, id)); // send the first packet of 16 bit containing [SYNC(4) | TYPE(2) | MSG_ID(10)]
+    std::this_thread::sleep_for(std::chrono::milliseconds(1700));
     for(int i=0;i<n;++i){
         std::string w0;
         std::string w1;
         float_to_word(data[i], w0, w1);
         a+=send_two_bytes(w0);
-        std::this_thread::sleep_for(std::chrono::milliseconds(20)); // we could implement it similar to send_msg
+        std::this_thread::sleep_for(std::chrono::milliseconds(1700)); // we could implement it similar to send_msg
         a+=send_two_bytes(w1);
     }
     return a;
