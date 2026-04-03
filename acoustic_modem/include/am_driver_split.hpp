@@ -107,6 +107,7 @@ private:
         uint8_t rx_n_floats= 0;
         std::chrono::steady_clock::time_point rx_last_rx{};
     };
+    std::vector<uint8_t> rx_byte_buffer;
     RxState rx;
     std::queue<DecodedMessage> decoded_queue;
     std::mutex decoded_mutex;

@@ -15,19 +15,6 @@
 #include <functional>
 #include <thread>
 
-// enum class PersistentCmd : uint16_t {
-//     Surface = 1,
-//     Abort   = 2,
-//     Stop    = 3
-// };
-
-// enum class MsgType : uint8_t{
-//     Type_def=0,
-//     Type_1 = 1,
-//     Type_2 = 2,
-//     Type_3 = 3,
-//     Type_4 = 4,
-// };
 
 struct DiagnosticData {
     uint8_t TR_BLOCK[2];  // 6 bits will be used by the packet header
@@ -112,6 +99,7 @@ class AcousticModemDriver : public IAcousticModemDriver {
         uint8_t rx_n_floats= 0;
         std::chrono::steady_clock::time_point rx_last_rx{};
     };
+    std::vector<uint8_t> rx_byte_buffer;
     RxState rx;
     std::queue<DecodedMessage> decoded_queue;
     std::mutex decoded_mutex;

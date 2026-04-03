@@ -395,8 +395,8 @@ bool AcousticModemDriverSplit::reset_diagnostic_mode() {
 }
 
 void AcousticModemDriverSplit::read_callback(std::vector<uint8_t>& data) {
-    if (data.size() < 2) return; // TODO: the serial channel is byte stream, POSSIBLE BUG      
-    uint16_t word = (static_cast<uint16_t>(data[1]) << 8) | data[0];
+    // if (data.size() < 2) return; // TODO: the serial channel is byte stream, POSSIBLE BUG      
+    // uint16_t word = (static_cast<uint16_t>(data[1]) << 8) | data[0];
 
     // need to use the tdmalink functions to make it work
 
@@ -405,36 +405,40 @@ void AcousticModemDriverSplit::read_callback(std::vector<uint8_t>& data) {
     // If we are currently reconstructing a message, all incoming words are treated
     // as payload to avoid corrupting the message reconstruction.
     // same process for Persistent mode, 
-    if(!rx.rx_receiving){
-        if(is_ack(word)){
-            Ack a;
-            a.msg_id=(word & 0x3FF);
-            a.type=MsgType((word >> 10) & 0x3);
-            {
-                std::lock_guard<std::mutex> lock(ack_mutex);
-                ack_queue.push(a);
-            }
-            return ;
-        }
-        if(is_persistent(word)){
-            PersistentCmd cmd=static_cast<PersistentCmd>(word & 0x0FFF);
-            {
-                std::lock_guard<std::mutex> lock(persistent_mutex_);
-                if (new_persistent_available_ && last_persistent_cmd_ == cmd) {
-                    return;
+    rx_byte_buffer.insert(rx_byte_buffer.end(),data.begin(),data.end());
+    while(rx_byte_buffer.size()>=2){
+        uint16_t word = (static_cast<uint16_t>(rx_byte_buffer[1]) << 8) | rx_byte_buffer[0];
+        rx_byte_buffer.erase(rx_byte_buffer.begin(),rx_byte_buffer.begin()+2);
+        if(!rx.rx_receiving){
+            if(is_ack(word)){
+                Ack a;
+                a.msg_id=(word & 0x3FF);
+                a.type=MsgType((word >> 10) & 0x3);
+                {
+                    std::lock_guard<std::mutex> lock(ack_mutex);
+                    ack_queue.push(a);
                 }
-                last_persistent_cmd_ = cmd;
-                new_persistent_available_ = true;
+                continue;
             }
-            return;
+            if(is_persistent(word)){
+                PersistentCmd cmd=static_cast<PersistentCmd>(word & 0x0FFF);
+                {
+                    std::lock_guard<std::mutex> lock(persistent_mutex_);
+                    if (new_persistent_available_ && last_persistent_cmd_ == cmd) {
+                        return;
+                    }
+                    last_persistent_cmd_ = cmd;
+                    new_persistent_available_ = true;
+                }
+                continue;
+            }
         }
-    }
-
-    DecodedMessage msg_decoded{};
-    bool complete=rx_rebuild_word(word,msg_decoded.type,msg_decoded.msg_id,msg_decoded.floats,msg_decoded.n_floats,std::chrono::milliseconds(1000));
-    if (complete) {
-        // we use the mutex because the decoded queue will be used by ros2 layer to publish in correct topic
-        std::lock_guard<std::mutex> lock(decoded_mutex);
-        decoded_queue.push(msg_decoded);
+        DecodedMessage msg_decoded{};
+        bool complete=rx_rebuild_word(word,msg_decoded.type,msg_decoded.msg_id,msg_decoded.floats,msg_decoded.n_floats,std::chrono::milliseconds(1000));
+        if (complete) {
+            // we use the mutex because the decoded queue will be used by ros2 layer to publish in correct topic
+            std::lock_guard<std::mutex> lock(decoded_mutex);
+            decoded_queue.push(msg_decoded);
+        }
     }
 }

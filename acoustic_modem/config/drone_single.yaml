@@ -1,0 +1,14 @@
+drone_node:
+  ros__parameters:
+    split_mode: false
+    device: "/tmp/ttyV0"
+    baudrate: 9600
+    channel: 1
+    level: 4
+    diagnostic: false
+    timeout: 0.5
+    # TDMA config
+    num_slots: 2
+    my_slot: 0
+    slot_duration_sec: 25
+    guard_ms: 1000
