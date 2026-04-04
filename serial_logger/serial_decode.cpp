@@ -92,72 +92,100 @@ static std::string payload_to_hex(const std::vector<uint8_t>& payload) {
 
 class CsvLogger {
    public:
-    explicit CsvLogger(
-        const std::string& log_dir = "/home/pi/can_logger") {
+    explicit CsvLogger(const std::string& log_dir = "/home/pi/can_logger") {
         std::filesystem::create_directories(log_dir);
         const std::string filename = make_log_filename(log_dir);
+
+        const bool file_exists = std::filesystem::exists(filename);
+
         out_.open(filename, std::ios::out | std::ios::app);
         if (!out_) {
-            throw std::runtime_error("Failed to open CSV log file: " +
-                                     filename);
+            throw std::runtime_error("Failed to open CSV log file: " + filename);
         }
 
-        out_ << "timestamp,msg_id_hex,msg_name,status,channel,code_hex,"
-                "i0,i1,i2,i3,i4,i5,i6,i7,raw_payload\n";
-        out_.flush();
+        if (!file_exists || std::filesystem::file_size(filename) == 0) {
+            out_ << "timestamp,msg_id_hex,msg_name,status,channel,code_hex,"
+                    "i0,i1,i2,i3,i4,i5,i6,i7\n";
+        }
 
         log_info("CSV logging to " + filename);
+    }
+
+    ~CsvLogger() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        out_.flush();
     }
 
     void log_event(uint8_t msg_id,
                    const std::string& status,
                    std::optional<uint8_t> channel,
                    std::optional<uint8_t> code,
-                   const std::vector<uint8_t>& payload) {
+                   const std::vector<uint8_t>& /*payload*/) {
+        const std::string ts = ::make_timestamp();
+        const std::string msg_name = message_name(msg_id);
+
         std::lock_guard<std::mutex> lock(mutex_);
+        out_ << ts << ','
+             << to_hex_byte_fast(msg_id) << ','
+             << msg_name << ','
+             << status << ',';
 
-        out_ << csv_escape(make_timestamp()) << ','
-             << csv_escape(to_hex_byte(msg_id)) << ','
-             << csv_escape(message_name(msg_id)) << ',' << csv_escape(status)
-             << ',' << csv_escape(channel ? std::to_string(*channel) : "")
-             << ',' << csv_escape(code ? to_hex_byte(*code) : "") << ','
-             << ",,,,,,,,"  // i0..i7 empty
-             << csv_escape(payload_to_hex(payload)) << '\n';
+        if (channel) {
+            out_ << static_cast<unsigned>(*channel);
+        }
+        out_ << ',';
 
-        out_.flush();
+        if (code) {
+            out_ << to_hex_byte_fast(*code);
+        }
+        out_ << ","
+             << ",,,,,,,,\n";
+
+        maybe_flush_unlocked();
     }
 
     void log_currents(uint8_t msg_id,
                       const std::string& status,
                       const std::array<float, 8>& currents,
-                      const std::vector<uint8_t>& payload) {
-        std::lock_guard<std::mutex> lock(mutex_);
+                      const std::vector<uint8_t>& /*payload*/) {
+        const std::string ts = ::make_timestamp();
+        const std::string msg_name = message_name(msg_id);
 
-        out_ << csv_escape(make_timestamp()) << ','
-             << csv_escape(to_hex_byte(msg_id)) << ','
-             << csv_escape(message_name(msg_id)) << ',' << csv_escape(status)
-             << ',' << ",,";
+        std::lock_guard<std::mutex> lock(mutex_);
+        out_ << ts << ','
+             << to_hex_byte_fast(msg_id) << ','
+             << msg_name << ','
+             << status << ",,,";
 
         for (std::size_t i = 0; i < currents.size(); ++i) {
             out_ << currents[i];
-            out_ << ',';
+            if (i + 1 != currents.size()) {
+                out_ << ',';
+            }
         }
+        out_ << '\n';
 
-        out_ << csv_escape(payload_to_hex(payload)) << '\n';
-        out_.flush();
+        maybe_flush_unlocked();
     }
 
     void log_raw(uint8_t msg_id,
                  const std::string& status,
-                 const std::vector<uint8_t>& payload) {
+                 const std::vector<uint8_t>& /*payload*/) {
+        const std::string ts = ::make_timestamp();
+        const std::string msg_name = message_name(msg_id);
+
         std::lock_guard<std::mutex> lock(mutex_);
+        out_ << ts << ','
+             << to_hex_byte_fast(msg_id) << ','
+             << msg_name << ','
+             << status << ",,,"
+             << ",,,,,,,,\n";
 
-        out_ << csv_escape(make_timestamp()) << ','
-             << csv_escape(to_hex_byte(msg_id)) << ','
-             << csv_escape(message_name(msg_id)) << ',' << csv_escape(status)
-             << ',' << ",,"
-             << ",,,,,,,," << csv_escape(payload_to_hex(payload)) << '\n';
+        maybe_flush_unlocked();
+    }
 
+    void flush() {
+        std::lock_guard<std::mutex> lock(mutex_);
         out_.flush();
     }
 
@@ -175,28 +203,35 @@ class CsvLogger {
         return oss.str();
     }
 
-    static std::string csv_escape(const std::string& value) {
-        std::string out = "\"";
-        for (char c : value) {
-            if (c == '"') {
-                out += "\"\"";
-            } else {
-                out += c;
+    static const char* to_hex_byte_fast(uint8_t value) {
+        static std::array<std::array<char, 5>, 256> table = [] {
+            std::array<std::array<char, 5>, 256> t{};
+            const char* hex = "0123456789ABCDEF";
+            for (int i = 0; i < 256; ++i) {
+                t[i][0] = '0';
+                t[i][1] = 'x';
+                t[i][2] = hex[(i >> 4) & 0xF];
+                t[i][3] = hex[i & 0xF];
+                t[i][4] = '\0';
             }
-        }
-        out += "\"";
-        return out;
+            return t;
+        }();
+        return table[value].data();
     }
 
-    static std::string to_hex_byte(uint8_t value) {
-        std::ostringstream oss;
-        oss << "0x" << std::hex << std::uppercase << std::setw(2)
-            << std::setfill('0') << static_cast<int>(value);
-        return oss.str();
+    void maybe_flush_unlocked() {
+        ++rows_since_flush_;
+        if (rows_since_flush_ >= kFlushEvery) {
+            out_.flush();
+            rows_since_flush_ = 0;
+        }
     }
+
+    static constexpr std::size_t kFlushEvery = 100;
 
     std::ofstream out_;
     std::mutex mutex_;
+    std::size_t rows_since_flush_ = 0;
 };
 
 static uint8_t compute_checksum(uint8_t msg_id,
