@@ -92,7 +92,7 @@ static std::string payload_to_hex(const std::vector<uint8_t>& payload) {
 
 class CsvLogger {
    public:
-    explicit CsvLogger(const std::string& log_dir = "/home/pi/can_logger") {
+    explicit CsvLogger(const std::string& log_dir = "/home/vortex/can_logger") {
         std::filesystem::create_directories(log_dir);
         const std::string filename = make_log_filename(log_dir);
 
@@ -570,7 +570,7 @@ int main(int argc, char* argv[]) {
 
     try {
         io_context io;
-        CsvLogger csv_logger("/home/pi/can_logger/logs");
+        CsvLogger csv_logger("/home/vortex/can_logger");
         SerialReceiver receiver(io, port_name, baud_rate, csv_logger);
         receiver.start();
         io.run();
