@@ -59,6 +59,26 @@ void TDMALink::on_ack_received(MsgType type, uint16_t msg_id){
     }
 }
 
+void TDMALink::on_tdma_sync_received(){
+    auto rx_time=std::chrono::steady_clock::now();
+
+    tdma_.sync_rx(rx_time);
+
+    auto logger=rclcpp::get_logger("acoustic_modem_driver");
+    RCLCPP_INFO(logger, "TDMA SYNC received, local TDMA armed");
+}
+
+void TDMALink::send_tdma_sync(){
+    auto tx_time = std::chrono::steady_clock::now();
+
+    driver_.send_two_bytes(driver_.make_tdma_sync());
+    std::this_thread::sleep_for(std::chrono::milliseconds(1700));
+
+    tdma_.sync_tx(tx_time);
+
+    auto logger=rclcpp::get_logger("acoustic_modem_driver");
+    RCLCPP_INFO(logger, "TDMA SYNC sent");
+}
 
 void TDMALink::send_pending_ack(){
     // PRECONDITION: tx_mtx_ must already be locked

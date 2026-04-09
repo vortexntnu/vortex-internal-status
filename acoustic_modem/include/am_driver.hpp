@@ -42,6 +42,10 @@ class AcousticModemDriver : public IAcousticModemDriver {
 
     AcousticModemDriver(const std::string& device, int baudrate, int channel, int level, bool diagnostic, float timeout);
 
+    bool is_tdma_sync(uint16_t bytes) const;
+    std::string make_tdma_sync();
+    bool try_tdma_sync_event(std::chrono::steady_clock::time_point& rx_time);
+    
     // PERSISTENT_MODE
     bool is_persistent(uint16_t w) const;
     std::string make_persistent_cmd(PersistentCmd cmd);
@@ -125,6 +129,11 @@ class AcousticModemDriver : public IAcousticModemDriver {
                                    // TX_COMPLETE)
         uint8_t MODE_LEVEL_FLAGS;  // 15 (contains DIAGNOSTIC_MODE, LEVEL)
     };
+
+    // TDMA_SYNC
+    std::mutex tdma_sync_;
+    bool tdma_sync_received_=false;
+    std::chrono::steady_clock::time_point last_tdma_sync_rx_;
 
     // SYNC_PREFIXES
     static constexpr uint8_t HANDSHAKE_SYNC = 0xA; //1010

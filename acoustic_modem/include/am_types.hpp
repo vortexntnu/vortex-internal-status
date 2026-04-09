@@ -30,4 +30,6 @@ struct Ack {
     uint16_t msg_id;
 };
 
+constexpr std::uint16_t TDMA_SYNC_WORD = 0xFFFF;
+
 #endif

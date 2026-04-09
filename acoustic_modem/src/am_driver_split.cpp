@@ -1,4 +1,5 @@
 #include "am_driver_split.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 AcousticModemDriverSplit::AcousticModemDriverSplit(const std::string& tx_device,
                                                    const std::string& rx_device,
@@ -63,6 +64,26 @@ void AcousticModemDriverSplit::close()
     asio::error_code error;
     tx_serial_port_.close(error);
     rx_serial_port_.close(error);
+}
+
+bool AcousticModemDriverSplit::is_tdma_sync(uint16_t word) const {
+    return word == TDMA_SYNC_WORD;
+}
+
+std::string AcousticModemDriverSplit::make_tdma_sync(){
+    std::uint16_t w=TDMA_SYNC_WORD;
+    return std::string(reinterpret_cast<const char*>(&w),2);
+}
+
+bool AcousticModemDriverSplit::try_tdma_sync_event(std::chrono::steady_clock::time_point& rx_time) {
+    std::lock_guard<std::mutex> lock(tdma_sync_);
+    if (!tdma_sync_received_) {
+        return false;
+    }
+
+    rx_time = last_tdma_sync_rx_;
+    tdma_sync_received_ = false;
+    return true;
 }
 
 // send_data(char)
@@ -407,11 +428,21 @@ void AcousticModemDriverSplit::read_callback(std::vector<uint8_t>& data) {
     // If we are currently reconstructing a message, all incoming words are treated
     // as payload to avoid corrupting the message reconstruction.
     // same process for Persistent mode, 
+    auto logger = rclcpp::get_logger("acoustic_modem_driver");
     rx_byte_buffer.insert(rx_byte_buffer.end(),data.begin(),data.end());
     while(rx_byte_buffer.size()>=2){
         uint16_t word = (static_cast<uint16_t>(rx_byte_buffer[1]) << 8) | rx_byte_buffer[0];
         rx_byte_buffer.erase(rx_byte_buffer.begin(),rx_byte_buffer.begin()+2);
         if(!rx.rx_receiving){
+            if(is_tdma_sync(word)){
+                {
+                    std::lock_guard<std::mutex> lock(tdma_sync_);
+                    tdma_sync_received_=true;
+                    last_tdma_sync_rx_=std::chrono::steady_clock::now();
+                }
+                RCLCPP_INFO(logger,"TDMA SYNC received");
+                continue;
+            }
             if(is_ack(word)){
                 Ack a;
                 a.msg_id=(word & 0x3FF);

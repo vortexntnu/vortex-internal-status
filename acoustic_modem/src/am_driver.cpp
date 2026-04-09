@@ -42,6 +42,26 @@ AcousticModemDriver::~AcousticModemDriver() {
     m_serial_port.close(error);
 }
 
+bool AcousticModemDriver::is_tdma_sync(uint16_t word) const {
+    return word == TDMA_SYNC_WORD;
+}
+
+std::string AcousticModemDriver::make_tdma_sync(){
+    std::uint16_t w=TDMA_SYNC_WORD;
+    return std::string(reinterpret_cast<const char*>(&w),2);
+}
+
+bool AcousticModemDriver::try_tdma_sync_event(std::chrono::steady_clock::time_point& rx_time) {
+    std::lock_guard<std::mutex> lock(tdma_sync_);
+    if (!tdma_sync_received_) {
+        return false;
+    }
+
+    rx_time = last_tdma_sync_rx_;
+    tdma_sync_received_ = false;
+    return true;
+}
+
 bool AcousticModemDriver::is_persistent(uint16_t w) const {
     return (((w >> 12) & 0xF) == PERSISTENT_SYNC);
 }
@@ -398,6 +418,15 @@ void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
         RCLCPP_INFO(logger,"Word: %u", word);
         rx_byte_buffer.erase(rx_byte_buffer.begin(),rx_byte_buffer.begin()+2);
         if(!rx.rx_receiving){
+            if(is_tdma_sync(word)){
+                {
+                    std::lock_guard<std::mutex> lock(tdma_sync_);
+                    tdma_sync_received_=true;
+                    last_tdma_sync_rx_=std::chrono::steady_clock::now();
+                }
+                RCLCPP_INFO(logger,"TDMA SYNC received");
+                continue;
+            }
             if(is_ack(word)){
                 Ack a;
                 a.msg_id=(word & 0x3FF);

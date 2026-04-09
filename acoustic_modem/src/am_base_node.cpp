@@ -11,6 +11,8 @@ BaseNode::BaseNode() : Node("base_node") {
 
     link_->start();
 
+    //link_->send_tdma_sync();
+
     RCLCPP_INFO(this->get_logger(), "BaseNode started");
 }
 
@@ -59,14 +61,18 @@ void BaseNode::setup_tdma(){
     this->declare_parameter<int>("my_slot", 1);
     this->declare_parameter<int>("slot_duration_sec", 25);
     this->declare_parameter<int>("guard_ms", 1000);
+    this->declare_parameter<int>("sync_delay", 5);
+    this->declare_parameter<int>("estimated_prop_delay", 0);
 
     TDMAConfig cfg;
     cfg.num_slots = static_cast<std::uint8_t>(this->get_parameter("num_slots").as_int());
     cfg.my_slot = static_cast<std::uint8_t>(this->get_parameter("my_slot").as_int());
     cfg.slot_duration = std::chrono::seconds(this->get_parameter("slot_duration_sec").as_int());
     cfg.guard = std::chrono::milliseconds(this->get_parameter("guard_ms").as_int());
+    cfg.sync_delay=std::chrono::seconds(this->get_parameter("sync_delay").as_int());
+    cfg.estimated_prop_delay=std::chrono::milliseconds(this->get_parameter("estimated_prop_delay").as_int());
 
-    cfg.t0 = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    cfg.t0 = std::chrono::steady_clock::time_point{};
 
     tdma_=std::make_unique<TDMAManager>(cfg);
     link_=std::make_unique<TDMALink>(*driver_,*tdma_);
@@ -86,6 +92,18 @@ void BaseNode::set_subscribers() {
         "persistent",
         10,
         std::bind(&BaseNode::persistent_callback, this, std::placeholders::_1));
+
+    sync_sub_=this->create_subscription<std_msgs::msg::UInt8>(
+        "synchronize",
+        10,
+        std::bind(&BaseNode::sync_callback, this, std::placeholders::_1));
+}
+
+void BaseNode::sync_callback(const std_msgs::msg::UInt8::SharedPtr msg){
+    if (msg->data == 1) {
+        link_->send_tdma_sync();
+        RCLCPP_INFO(this->get_logger(), "Manual TDMA synchronization triggered");
+    }
 }
 
 void BaseNode::persistent_callback(const std_msgs::msg::UInt16::SharedPtr msg) {

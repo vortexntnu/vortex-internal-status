@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <chrono>
 
 enum class MsgType : uint8_t;
 enum class PersistentCmd : uint16_t;
@@ -20,13 +21,16 @@ public:
 
     virtual std::string make_ack(MsgType t, uint16_t ack_id) = 0;
     virtual std::string make_persistent_cmd(PersistentCmd cmd) = 0;
+    virtual std::string make_tdma_sync()=0;
 
     virtual size_t send_two_bytes(std::string data) = 0;
     virtual size_t send_message(MsgType type, uint16_t id, const float* data) = 0;
 
     virtual bool try_pop_decoded(DecodedMessage& msg) = 0;
     virtual bool try_pop_ack(Ack& ack) = 0;
+    virtual bool try_tdma_sync_event(std::chrono::steady_clock::time_point& rx_time)=0;
     virtual bool consume_persistent(PersistentCmd& cmd) = 0;
+    virtual bool is_tdma_sync(uint16_t bytes) const =0;
 };
 
 #endif

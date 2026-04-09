@@ -8,6 +8,9 @@ struct TDMAConfig{
     std::chrono::seconds slot_duration=std::chrono::seconds(25);
     std::chrono::milliseconds guard=std::chrono::milliseconds(1000);
     std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+    std::chrono::milliseconds sync_delay{std::chrono::seconds{5}};
+    std::chrono::milliseconds sync_tx_duration{std::chrono::milliseconds(1700)};
+    std::chrono::milliseconds estimated_prop_delay{std::chrono::milliseconds(0)};
 };
 
 class TDMAManager{
@@ -24,7 +27,14 @@ class TDMAManager{
 
     bool in_guard_time(std::chrono::steady_clock::time_point now) const;
 
+    void sync_rx(std::chrono::steady_clock::time_point rx_time);
+
+    void sync_tx(std::chrono::steady_clock::time_point tx_time);
+
+    bool is_synced() const;
+    void clear_sync();
+
     private:
     TDMAConfig cfg;
-
+    bool synced_{false};
 };

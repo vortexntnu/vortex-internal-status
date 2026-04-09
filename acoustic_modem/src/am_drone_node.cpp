@@ -59,14 +59,18 @@ void DroneNode::setup_tdma(){
     this->declare_parameter<int>("my_slot", 0);
     this->declare_parameter<int>("slot_duration_sec", 25);
     this->declare_parameter<int>("guard_ms", 1000);
+    this->declare_parameter<int>("sync_delay", 5);
+    this->declare_parameter<int>("estimated_prop_delay", 0);
 
     TDMAConfig cfg;
     cfg.num_slots = static_cast<std::uint8_t>(this->get_parameter("num_slots").as_int());
     cfg.my_slot = static_cast<std::uint8_t>(this->get_parameter("my_slot").as_int());
     cfg.slot_duration = std::chrono::seconds(this->get_parameter("slot_duration_sec").as_int());
     cfg.guard = std::chrono::milliseconds(this->get_parameter("guard_ms").as_int());
+    cfg.sync_delay=std::chrono::seconds(this->get_parameter("sync_delay").as_int());
+    cfg.estimated_prop_delay=std::chrono::milliseconds(this->get_parameter("estimated_prop_delay").as_int());
 
-    cfg.t0 = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    cfg.t0 = std::chrono::steady_clock::time_point{};
 
     tdma_=std::make_unique<TDMAManager>(cfg);
     link_=std::make_unique<TDMALink>(*driver_,*tdma_);
@@ -124,6 +128,13 @@ void DroneNode::tx_callback(const std_msgs::msg::Float32MultiArray::SharedPtr ms
  * for normal payload handling.
  */
 void DroneNode::poll_modem(){
+
+    std::chrono::steady_clock::time_point sync_time;
+    if(driver_->try_tdma_sync_event(sync_time)){
+        link_->on_tdma_sync_received();
+        RCLCPP_INFO(this->get_logger(),"TDMA SYNC processed in Drone Node");
+    }
+
     DecodedMessage msg;
     while(driver_->try_pop_decoded(msg)){
         link_->on_data_received(msg.type,msg.msg_id);

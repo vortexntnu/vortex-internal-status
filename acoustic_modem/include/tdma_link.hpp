@@ -45,12 +45,16 @@ class TDMALink {
 
   void on_data_received(MsgType type, uint16_t msg_id);
   void on_ack_received(MsgType type, uint16_t msg_id);
+  void on_tdma_sync_received();
+
+  void send_tdma_sync();
 
   private:
   void tx_worker();
   void send_new_message(const LinkTxMessage& msg);
   void resend_last_message();
   void send_pending_ack();
+  
 
   IAcousticModemDriver& driver_;
   TDMAManager& tdma_;
@@ -68,8 +72,8 @@ class TDMALink {
   std::chrono::steady_clock::time_point last_tx_time_;
   int retry_count_{0};
   struct PendingAck {
-  MsgType type;
-  uint16_t msg_id;
+    MsgType type;
+    uint16_t msg_id;
   };
   std::queue<PendingAck> pending_acks_;
 

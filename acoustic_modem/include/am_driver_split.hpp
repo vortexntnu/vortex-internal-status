@@ -36,6 +36,10 @@ public:
 
     uint16_t reserve_msg_id() override;
 
+    bool is_tdma_sync(uint16_t bytes) const;
+    std::string make_tdma_sync();
+    bool try_tdma_sync_event(std::chrono::steady_clock::time_point& rx_time);
+
     std::string make_ack(MsgType t, uint16_t ack_id) override;
     std::string make_persistent_cmd(PersistentCmd cmd) override;
     std::string make_handshake(MsgType type, uint16_t id);
@@ -111,6 +115,11 @@ private:
     RxState rx;
     std::queue<DecodedMessage> decoded_queue;
     std::mutex decoded_mutex;
+
+    // TDMA_SYNC
+    std::mutex tdma_sync_;
+    bool tdma_sync_received_=false;
+    std::chrono::steady_clock::time_point last_tdma_sync_rx_;
 
     // SYNC_PREFIXES
     static constexpr uint8_t HANDSHAKE_SYNC = 0xA; //1010
