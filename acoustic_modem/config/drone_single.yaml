@@ -12,3 +12,5 @@ drone_node:
     my_slot: 0
     slot_duration_sec: 25
     guard_ms: 1000
+    sync_delay: 5
+    estiamted_prop_delay: 0
