@@ -31,6 +31,8 @@ class TDMAManager{
 
     void sync_tx(std::chrono::steady_clock::time_point tx_time);
 
+    void set_estimated_prop_delay(std::chrono::milliseconds d);
+
     bool is_synced() const;
     void clear_sync();
 

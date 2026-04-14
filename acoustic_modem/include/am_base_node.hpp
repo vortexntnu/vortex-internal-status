@@ -5,7 +5,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_msgs/msg/u_int16.hpp>
-#include <std_msgs/msg/u_int8.hpp>
+#include <std_msgs/msg/u_int32.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include "am_driver.hpp"
 #include "tdma_link.hpp"
@@ -43,14 +43,14 @@ class BaseNode : public rclcpp::Node {
 
     void poll_and_publish_rx();
 
-    void sync_callback(const std_msgs::msg::UInt8::SharedPtr msg);
+    void sync_callback(const std_msgs::msg::UInt32::SharedPtr msg);
 
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr data_1_;
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr data_2_;
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr data_3_;
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr data_0_;
     rclcpp::Subscription<std_msgs::msg::UInt16>::SharedPtr persistent_sub_;
-    rclcpp::Subscription<std_msgs::msg::UInt8>::SharedPtr sync_sub_;
+    rclcpp::Subscription<std_msgs::msg::UInt32>::SharedPtr sync_sub_;
     std::unique_ptr<IAcousticModemDriver> driver_;
     std::unique_ptr<TDMAManager> tdma_;
     std::unique_ptr<TDMALink> link_;

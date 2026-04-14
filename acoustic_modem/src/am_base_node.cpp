@@ -11,7 +11,7 @@ BaseNode::BaseNode() : Node("base_node") {
 
     link_->start();
 
-    //link_->send_tdma_sync();
+    link_->send_tdma_sync();
 
     RCLCPP_INFO(this->get_logger(), "BaseNode started");
 }
@@ -93,17 +93,20 @@ void BaseNode::set_subscribers() {
         10,
         std::bind(&BaseNode::persistent_callback, this, std::placeholders::_1));
 
-    sync_sub_=this->create_subscription<std_msgs::msg::UInt8>(
+    sync_sub_=this->create_subscription<std_msgs::msg::UInt32>(
         "synchronize",
         10,
         std::bind(&BaseNode::sync_callback, this, std::placeholders::_1));
 }
 
-void BaseNode::sync_callback(const std_msgs::msg::UInt8::SharedPtr msg){
-    if (msg->data == 1) {
-        link_->send_tdma_sync();
-        RCLCPP_INFO(this->get_logger(), "Manual TDMA synchronization triggered");
-    }
+void BaseNode::sync_callback(const std_msgs::msg::UInt32::SharedPtr msg){
+    auto prop_delay_ms=std::chrono::milliseconds(msg->data);
+    tdma_->set_estimated_prop_delay(prop_delay_ms);
+    RCLCPP_INFO(this->get_logger(),
+                "Manual TDMA sync requested with estimated propagation delay = %u ms",
+                msg->data);
+    link_->send_tdma_sync();
+    RCLCPP_INFO(this->get_logger(), "Manual TDMA synchronization triggered");
 }
 
 void BaseNode::persistent_callback(const std_msgs::msg::UInt16::SharedPtr msg) {
