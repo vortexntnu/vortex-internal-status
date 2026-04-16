@@ -72,3 +72,7 @@ bool TDMAManager::is_synced() const{
 void TDMAManager::clear_sync(){
     synced_=false;
 }
+
+void TDMAManager::set_estimated_prop_delay(std::chrono::milliseconds d) {
+    cfg.estimated_prop_delay = d;
+}

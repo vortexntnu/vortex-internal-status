@@ -1,7 +1,7 @@
 base_node:
   ros__parameters:
     split_mode: false
-    device: "/tmp/ttyV1"
+    device: "/dev/serial0"
     baudrate: 9600
     channel: 1
     level: 4

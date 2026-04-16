@@ -1,8 +1,8 @@
 drone_node:
   ros__parameters:
     split_mode: true
-    tx_device: "/tmp/ttyV0"
-    rx_device: "/tmp/ttyV1"
+    tx_device: "/dev/ttyUSB1"
+    rx_device: "/dev/ttyUSB0"
     baudrate: 9600
     channel: 1
     level: 4
