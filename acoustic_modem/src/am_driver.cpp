@@ -399,13 +399,14 @@ void AcousticModemDriver::async_receive_handler(const asio::error_code & error,s
     }
     if (bytes_transferred > 0 && m_func) {
         m_func(m_recv_buffer, bytes_transferred);
-        m_serial_port.async_read_some(
+        
+    }
+    m_serial_port.async_read_some(
             asio::buffer(m_recv_buffer),
             [this](std::error_code error, size_t bytes_transferred)
             {
                 async_receive_handler(error, bytes_transferred);
             });
-    }
 }
 
 void AcousticModemDriver::read_callback(std::vector<uint8_t>& data) {
