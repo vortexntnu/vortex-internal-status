@@ -60,16 +60,30 @@ std::string decode_pt_sample(const uint8_t* data, size_t len) {
     return std::string(buffer);
 }
 
-std::string decode_leakage_alarm(const uint8_t* data, size_t len) {
+std::string decode_sensor_leakage_alarm(const uint8_t* data, size_t len) {
     (void)data;
     (void)len;
-    return "LEAKAGE ALARM";
+    return "SENSOR LEAKAGE ALARM";
+}
+
+std::string decode_fast_leakage_alarm(const uint8_t* data, size_t len) {
+    (void)data;
+    (void)len;
+    return "FAST LEAKAGE ALARM";
+}
+
+std::string decode_slow_leakage_alarm(const uint8_t* data, size_t len) {
+    (void)data;
+    (void)len;
+    return "SLOW LEAKAGE ALARM";
 }
 
 static void init_registry(CanRegistry& registry) {
     registry.add({0x46D, "Gripper Encoder angles", decode_encoder_angles});
     registry.add({0x333, "Internal PT Sample", decode_pt_sample});
-    registry.add({0x100, "Leakage Alarm", decode_leakage_alarm});
+    registry.add({0x100, "Sensor Leaks", decode_sensor_leakage_alarm});
+    registry.add({0x101, "Fast Leaks", decode_fast_leakage_alarm});
+    registry.add({0x102, "Slow Leaks", decode_slow_leakage_alarm});
 }
 
 static void handle_frame(const canfd_frame& frame,
