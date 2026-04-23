@@ -80,10 +80,10 @@ std::string decode_slow_leakage_alarm(const uint8_t* data, size_t len) {
 
 static void init_registry(CanRegistry& registry) {
     registry.add({0x46D, "Gripper Encoder angles", decode_encoder_angles});
-    registry.add({0x333, "Internal PT Sample", decode_pt_sample});
-    registry.add({0x100, "Sensor Leaks", decode_sensor_leakage_alarm});
-    registry.add({0x334, "Fast Leaks", decode_fast_leakage_alarm});
-    registry.add({0x335, "Slow Leaks", decode_slow_leakage_alarm});
+    registry.add({0x480, "Internal PT Sample", decode_pt_sample});
+    // registry.add({0x100, "Sensor Leaks", decode_sensor_leakage_alarm});
+    //registry.add({0x334, "Fast Leaks", decode_fast_leakage_alarm});
+    //registry.add({0x335, "Slow Leaks", decode_slow_leakage_alarm});
 }
 
 static void handle_frame(const canfd_frame& frame,
