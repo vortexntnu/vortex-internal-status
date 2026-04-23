@@ -1,7 +1,7 @@
 #ifndef AM_DRIVER_IFACE_HPP
 #define AM_DRIVER_IFACE_HPP
 
-#include "am_types.hpp"
+#include "types/am_types.hpp"
 #include <cstdint>
 #include <optional>
 #include <string>

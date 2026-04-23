@@ -6,10 +6,10 @@
 #include <std_msgs/msg/string.hpp>
 #include <std_msgs/msg/u_int16.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
-#include "am_driver.hpp"
-#include "am_driver_split.hpp"
-#include "tdma_link.hpp"
-#include "am_driver_iface.hpp"
+#include "driver/am_driver_single.hpp"
+#include "driver/am_driver_split.hpp"
+#include "tdma/tdma_link.hpp"
+#include "driver/am_driver_iface.hpp"
 
 /**
  * Creating two nodes, one for each system

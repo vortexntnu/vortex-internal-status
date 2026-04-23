@@ -1,4 +1,4 @@
-#include "tdma_link.hpp"
+#include "tdma/tdma_link.hpp"
 #include <rclcpp/rclcpp.hpp>
 
 TDMALink::TDMALink(IAcousticModemDriver& driver, TDMAManager& tdma): driver_(driver), tdma_(tdma){}

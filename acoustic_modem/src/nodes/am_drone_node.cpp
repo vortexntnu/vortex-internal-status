@@ -1,45 +1,43 @@
-#include "am_base_node.hpp"
+#include "nodes/am_drone_node.hpp"
 
-BaseNode::BaseNode() : Node("base_node") {
+DroneNode::DroneNode() : Node("drone_node") {
+
     init_connection();
     setup_tdma();
-    set_publishers();
-    set_subscribers();
+    set_subscriber();
+    set_publisher();
 
     timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(1000), std::bind(&BaseNode::poll_and_publish_rx, this));
+        std::chrono::milliseconds(200), std::bind(&DroneNode::poll_modem, this));
 
     link_->start();
 
-    link_->send_tdma_sync();
-
-    RCLCPP_INFO(this->get_logger(), "BaseNode started");
+    RCLCPP_INFO(this->get_logger(), "DroneNode started");
 }
 
-BaseNode::~BaseNode() {
+DroneNode::~DroneNode() {
     if (link_) {
         link_->stop();
     }
 }
 
-
-void BaseNode::init_connection() {
+void DroneNode::init_connection() {
     this->declare_parameter<std::string>("device", "");
     this->declare_parameter<std::string>("tx_device", "");
     this->declare_parameter<std::string>("rx_device", "");
     this->declare_parameter<int>("baudrate", 9600);
-    this->declare_parameter<int>("channel", 1);
+    this->declare_parameter<int>("channel", 1); 
     this->declare_parameter<int>("level", 4);
     this->declare_parameter<bool>("diagnostic", false);
     this->declare_parameter<double>("timeout", 0.5);
     this->declare_parameter<bool>("split_mode",false);
 
+    std::string device = this->get_parameter("device").as_string();
     int baudrate = this->get_parameter("baudrate").as_int();
     int channel = this->get_parameter("channel").as_int();
     int level = this->get_parameter("level").as_int();
     bool diagnostic = this->get_parameter("diagnostic").as_bool();
-    float timeout =
-        static_cast<float>(this->get_parameter("timeout").as_double());
+    float timeout =static_cast<float>(this->get_parameter("timeout").as_double());    
     bool split=this->get_parameter("split_mode").as_bool();
     
     if (!split) {
@@ -56,9 +54,9 @@ void BaseNode::init_connection() {
     }
 }
 
-void BaseNode::setup_tdma(){
+void DroneNode::setup_tdma(){
     this->declare_parameter<int>("num_slots", 2);
-    this->declare_parameter<int>("my_slot", 1);
+    this->declare_parameter<int>("my_slot", 0);
     this->declare_parameter<int>("slot_duration_sec", 25);
     this->declare_parameter<int>("guard_ms", 1000);
     this->declare_parameter<int>("sync_delay", 5);
@@ -79,77 +77,78 @@ void BaseNode::setup_tdma(){
 
 }
 
-void BaseNode::set_publishers() {
-    // we reserved 2 bit for the type of data so we'll have 4 types of data
-    data_0_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("topic_0", 10);
-    data_1_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("topic_1", 10);
-    data_2_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("topic_2", 10);
-    data_3_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("topic_3", 10);
+void DroneNode::set_subscriber() {
+    // Depends on the topic in which we will read the data
+    subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>(
+        "data_topic", 10, std::bind(&DroneNode::tx_callback, this,
+        std::placeholders::_1));
+}
+void DroneNode::set_publisher(){
+    persistent_pub_ = this->create_publisher<std_msgs::msg::UInt16>("persistent_cmd_topic", 10);
+    publisher_=this->create_publisher<std_msgs::msg::Float32MultiArray>("not_necessary_topic",10);
 }
 
-void BaseNode::set_subscribers() {
-    persistent_sub_ = this->create_subscription<std_msgs::msg::UInt16>(
-        "persistent",
-        10,
-        std::bind(&BaseNode::persistent_callback, this, std::placeholders::_1));
+void DroneNode::tx_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg){
+    std::vector<float> payload(msg->data.begin(), msg->data.end());
 
-    sync_sub_=this->create_subscription<std_msgs::msg::UInt32>(
-        "synchronize",
-        10,
-        std::bind(&BaseNode::sync_callback, this, std::placeholders::_1));
-}
+    MsgType type;
 
-void BaseNode::sync_callback(const std_msgs::msg::UInt32::SharedPtr msg){
-    auto prop_delay_ms=std::chrono::milliseconds(msg->data);
-    tdma_->set_estimated_prop_delay(prop_delay_ms);
-    RCLCPP_INFO(this->get_logger(),
-                "Manual TDMA sync requested with estimated propagation delay = %u ms",
-                msg->data);
-    link_->send_tdma_sync();
-    RCLCPP_INFO(this->get_logger(), "Manual TDMA synchronization triggered");
-}
+    switch (payload.size()) {
+        case 2:
+            type = MsgType::Type_1;
+            break;
 
-void BaseNode::persistent_callback(const std_msgs::msg::UInt16::SharedPtr msg) {
-    std::uint16_t value = msg->data;
+        case 4:
+            type = MsgType::Type_2;
+            break;
 
-    if (value == 0) {
-        link_->stop_persistent_command();
-        RCLCPP_INFO(this->get_logger(), "Stopped persistent command");
-        return;
+        case 5:
+            type = MsgType::Type_3;
+            break;
+
+        default:
+            RCLCPP_WARN(this->get_logger(),
+                        "Unsupported payload size: %zu floats",
+                        payload.size());
+            return;
     }
 
-    PersistentCmd cmd = static_cast<PersistentCmd>(value);
 
-    link_->start_persistent_command(cmd);
+    link_->enqueue(type, payload);
+    RCLCPP_INFO(this->get_logger(),"Enqueued outgoing acoustic message with %zu floats",payload.size());
 
-    RCLCPP_INFO(this->get_logger(),
-                "Sent persistent command: %u",
-                static_cast<std::uint16_t>(cmd));
 }
 
-void BaseNode::poll_and_publish_rx() {
+
+/*
+ * Persistent commands are received as standalone 16-bit control words and are
+ * decoded directly by the driver. In poll_modem(), we check whether a new
+ * persistent command has been received and, if so, publish it immediately on
+ * a dedicated ROS topic so the drone control logic can react without waiting
+ * for normal payload handling.
+ */
+void DroneNode::poll_modem(){
+
+    std::chrono::steady_clock::time_point sync_time;
+    if(driver_->try_tdma_sync_event(sync_time)){
+        link_->on_tdma_sync_received();
+        RCLCPP_INFO(this->get_logger(),"TDMA SYNC processed in Drone Node");
+    }
+
     DecodedMessage msg;
-    while (driver_->try_pop_decoded(msg)) {
+    while(driver_->try_pop_decoded(msg)){
         link_->on_data_received(msg.type,msg.msg_id);
+
         std_msgs::msg::Float32MultiArray out;
         for (std::uint8_t i = 0; i < msg.n_floats; ++i) {
             out.data.push_back(msg.floats[i]);
         }
-        switch(msg.type) {
-            case MsgType::Type_1: 
-                data_1_->publish(out); 
-                break;
-            case MsgType::Type_2: 
-                data_2_->publish(out); 
-                break;
-            case MsgType::Type_3: 
-                data_3_->publish(out); 
-                break;
-            default:
-                data_0_->publish(out); 
-                break;
-        }
+        // TODO: here i can publish the data in a topic or i can just print them out or whatever
+        // Let's publish them for now
+        publisher_->publish(out);
+         RCLCPP_INFO(this->get_logger(),"Published received acoustic message, msg_id=%u", msg.msg_id);
     }
+
     Ack ack;
     while(driver_->try_pop_ack(ack)){
         link_->on_ack_received(ack.type,ack.msg_id);
@@ -159,10 +158,10 @@ void BaseNode::poll_and_publish_rx() {
 
     PersistentCmd cmd;
     if(driver_->consume_persistent(cmd)){
-        //std_msgs::msg::UInt16 out_cmd;
-        //out_cmd.data = static_cast<std::uint16_t>(cmd);
+        std_msgs::msg::UInt16 out_cmd;
+        out_cmd.data = static_cast<std::uint16_t>(cmd);
 
-        //persistent_pub_->publish(out_cmd);
+        persistent_pub_->publish(out_cmd);
 
         RCLCPP_INFO(this->get_logger(),"Received persistent command: %u", static_cast<std::uint16_t>(cmd));
     }
@@ -170,7 +169,7 @@ void BaseNode::poll_and_publish_rx() {
 
 int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<BaseNode>();
+    auto node = std::make_shared<DroneNode>();
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;

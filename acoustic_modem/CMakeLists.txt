@@ -21,10 +21,11 @@ include_directories(include)
 #set(LIB_NAME ${PROJECT_NAME})
 
 add_library(${PROJECT_NAME} SHARED
-  src/am_driver.cpp
-  src/tdma_link.cpp
-  src/tdma_manager.cpp
-  src/am_driver_split.cpp
+  src/driver/am_driver_single.cpp
+  src/tdma/tdma_link.cpp
+  src/tdma/tdma_manager.cpp
+  src/driver/am_driver_split.cpp
+  src/driver/am_driver_base.cpp
   )
 
 
@@ -35,13 +36,13 @@ ament_target_dependencies(${PROJECT_NAME}
 )
 
 add_executable(am_base_node
-  src/am_base_node.cpp
+  src/nodes/am_base_node.cpp
 )
 target_link_libraries(am_base_node ${PROJECT_NAME})
 ament_target_dependencies(am_base_node rclcpp std_msgs)
 
 add_executable(am_drone_node
-  src/am_drone_node.cpp
+  src/nodes/am_drone_node.cpp
 )
 target_link_libraries(am_drone_node ${PROJECT_NAME})
 ament_target_dependencies(am_drone_node rclcpp std_msgs)

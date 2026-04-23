@@ -1,4 +1,4 @@
-#include "tdma_manager.hpp"
+#include "tdma/tdma_manager.hpp"
 
 std::uint8_t TDMAManager::current_slot(std::chrono::steady_clock::time_point now) const{
     auto cycle=cfg.num_slots*cfg.slot_duration;
