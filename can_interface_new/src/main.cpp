@@ -44,16 +44,19 @@ std::string decode_encoder_angles(const uint8_t* data, size_t len) {
     return std::string(buffer);
 }
 
-std::string decode_pressure_sample(const uint8_t* data, size_t len) {
-    if (len < sizeof(double)) {
+std::string decode_pt_sample(const uint8_t* data, size_t len) {
+    if (len < 2 * sizeof(float)) {
         return "invalid length";
     }
 
-    double pressure_hpa = 0.0;
-    std::memcpy(&pressure_hpa, data, sizeof(double));
+    float temperature_c = 0.0f;
+    float pressure_pa = 0.0f;
+
+    std::memcpy(&temperature_c, data, sizeof(float));
+    std::memcpy(&pressure_pa, data + sizeof(float), sizeof(float));
 
     char buffer[128];
-    std::snprintf(buffer, sizeof(buffer), "P=%.6f hPa", pressure_hpa);
+    std::snprintf(buffer, sizeof(buffer), "T=%.3f C, P=%.3f Pa", temperature_c, pressure_pa);
     return std::string(buffer);
 }
 
@@ -65,7 +68,7 @@ std::string decode_leakage_alarm(const uint8_t* data, size_t len) {
 
 static void init_registry(CanRegistry& registry) {
     registry.add({0x46D, "Gripper Encoder angles", decode_encoder_angles});
-    registry.add({0x780, "Pressure Sample", decode_pressure_sample});
+    registry.add({0x780, "Internal PT Sample", decode_pt_sample});
     registry.add({0x100, "Leakage Alarm", decode_leakage_alarm});
 }
 
