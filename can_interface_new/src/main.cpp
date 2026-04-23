@@ -68,7 +68,7 @@ std::string decode_leakage_alarm(const uint8_t* data, size_t len) {
 
 static void init_registry(CanRegistry& registry) {
     registry.add({0x46D, "Gripper Encoder angles", decode_encoder_angles});
-    registry.add({0x780, "Internal PT Sample", decode_pt_sample});
+    registry.add({0x333, "Internal PT Sample", decode_pt_sample});
     registry.add({0x100, "Leakage Alarm", decode_leakage_alarm});
 }
 
