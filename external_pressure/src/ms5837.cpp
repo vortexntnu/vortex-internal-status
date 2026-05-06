@@ -70,6 +70,11 @@ bool MS5837::writeByte(uint8_t value) {
 }
 
 bool MS5837::writeRead(uint8_t reg, uint8_t* rx, uint16_t len) {
+    std::cerr << "writeRead: dev=" << i2c_device_ << " fd=" << fd_ << " addr=0x"
+              << std::hex << static_cast<int>(address_) << " reg=0x"
+              << static_cast<int>(reg) << " len=" << std::dec << len
+              << std::endl;
+
     if (fd_ < 0 || rx == nullptr || len == 0) {
         return false;
     }
