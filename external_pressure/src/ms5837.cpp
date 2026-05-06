@@ -311,7 +311,7 @@ float MS5837::depth() const
 
 float MS5837::altitude() const
 {
-    float pressure_mbar = pressure(PressureUint::mbar);
+    float pressure_mbar = pressure(PressureUnit::mbar);
     return (1.0f - std::pow((pressure_mbar / 1013.25f), 0.190284f)) * 145366.45f * 0.3048f;
 }
 
