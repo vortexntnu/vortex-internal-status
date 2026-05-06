@@ -100,7 +100,7 @@ bool MS5837::reset() {
 bool MS5837::readPROM() {
     uint8_t rx[2] = {0, 0};
 
-    for (uint8_t i = 0; i < 8; ++i) {
+    for (uint8_t i = 0; i < 7; ++i) {
         const uint8_t addr = static_cast<uint8_t>(PROM_READ + (i * 2U));
 
         bool ok = false;
