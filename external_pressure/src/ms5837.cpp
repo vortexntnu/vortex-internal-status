@@ -34,9 +34,9 @@ bool MS5837::openBus()
         return false;
     }
 
-    if (::ioctl(fd_, I2C_SLAVE, i2c_address_) < 0) {
+    if (::ioctl(fd_, I2C_SLAVE, address_) < 0) {
         std::cerr << "Failed to set I2C slave address 0x"
-                  << std::hex << static_cast<int>(i2c_address_)
+                  << std::hex << static_cast<int>(address_)
                   << " on " << i2c_device_
                   << ": " << std::strerror(errno)
                   << std::dec << std::endl;
