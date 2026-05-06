@@ -61,7 +61,7 @@ void MS5837Node::update()
     sensor_msgs::msg::FluidPressure pressure_msg;
     pressure_msg.header.stamp = now;
     pressure_msg.header.frame_id = frame_id_;
-    pressure_msg.fluid_pressure = sensor_.pressure(MS5837::Pa);
+    pressure_msg.fluid_pressure = sensor_.pressure(PressureUnit::Pa);
     pressure_msg.variance = 0.0;
     pressure_pub_->publish(pressure_msg);
 

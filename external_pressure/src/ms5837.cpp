@@ -305,13 +305,13 @@ float MS5837::temperature() const
 
 float MS5837::depth() const
 {
-    float pressure_pa = pressure(Pa);
+    float pressure_pa = pressure(PressureUnit::Pa);
     return (pressure_pa - 101300.0f) / (fluid_density_ * 9.80665f);
 }
 
 float MS5837::altitude() const
 {
-    float pressure_mbar = pressure(mbar);
+    float pressure_mbar = pressure(PressureUint::mbar);
     return (1.0f - std::pow((pressure_mbar / 1013.25f), 0.190284f)) * 145366.45f * 0.3048f;
 }
 

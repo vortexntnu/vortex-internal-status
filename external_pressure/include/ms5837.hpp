@@ -36,7 +36,7 @@ class MS5837 {
 
     void setFluidDensity(float density);
 
-    float pressure(float conversion = Pa) const;
+    float pressure(float conversion = PressureUnit::Pa) const;
     float temperature() const;
     float depth() const;
     float altitude() const;
