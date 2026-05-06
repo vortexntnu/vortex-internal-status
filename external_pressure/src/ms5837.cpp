@@ -96,18 +96,46 @@ bool MS5837::reset() {
     return writeByte(RESET);
 }
 
+
 bool MS5837::readPROM() {
-    uint8_t rx[2];
+    uint8_t rx[2] = {0, 0};
 
     for (uint8_t i = 0; i < 8; ++i) {
-        uint8_t addr = static_cast<uint8_t>(PROM_READ + (i * 2U));
+        const uint8_t addr = static_cast<uint8_t>(PROM_READ + (i * 2U));
 
-        if (!writeRead(addr, rx, 2)) {
+        bool ok = false;
+
+        for (int attempt = 1; attempt <= 5; ++attempt) {
+            rx[0] = 0;
+            rx[1] = 0;
+
+            if (writeRead(addr, rx, 2)) {
+                ok = true;
+                break;
+            }
+
+            std::cerr << "PROM read failed: index=" << static_cast<int>(i)
+                      << " cmd=0x" << std::hex << static_cast<int>(addr)
+                      << std::dec << " attempt=" << attempt
+                      << std::endl;
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+
+        if (!ok) {
             return false;
         }
 
-        C_[i] = static_cast<uint16_t>((static_cast<uint16_t>(rx[0]) << 8) |
-                                      static_cast<uint16_t>(rx[1]));
+        C_[i] = static_cast<uint16_t>(
+            (static_cast<uint16_t>(rx[0]) << 8) |
+            static_cast<uint16_t>(rx[1])
+        );
+
+        std::cerr << "PROM[" << static_cast<int>(i)
+                  << "] = 0x" << std::hex << C_[i]
+                  << std::dec << std::endl;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
 
     return true;
