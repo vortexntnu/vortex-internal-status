@@ -1,11 +1,11 @@
 #include "can_interface.hpp"
-#include <iostream>
-#include <cstring>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <net/if.h>
 #include <linux/can/raw.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <cstring>
+#include <iostream>
 
 can_interface::can_interface() : socket_fd_(-1), is_initialized_(false) {}
 
@@ -17,25 +17,25 @@ can_interface::~can_interface() {
 
 can_status can_interface::init(const std::string& ifname) {
     interface_name_ = ifname;
-    
+
     socket_fd_ = socket(PF_CAN, SOCK_RAW, CAN_RAW);
     if (socket_fd_ < 0) {
         return can_status::ERR_SOCKET;
     }
 
     int enable_canfd = 1;
-    if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, 
-                   &enable_canfd, sizeof(enable_canfd)) < 0) {
+    if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &enable_canfd,
+                   sizeof(enable_canfd)) < 0) {
         close(socket_fd_);
         return can_status::ERR_CANFD_SUPPORT;
     }
 
     // Enable loopback (receive own frames). Only use for vcan testing
-    //int recv_own_msgs = 1;
-    //if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, 
+    // int recv_own_msgs = 1;
+    // if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS,
     //               &recv_own_msgs, sizeof(recv_own_msgs)) < 0) {
     //    close(socket_fd_);
-    //    return can_status::ERR_LOOPBACK;        
+    //    return can_status::ERR_LOOPBACK;
     //}
 
     struct ifreq ifr;
@@ -48,18 +48,21 @@ can_status can_interface::init(const std::string& ifname) {
     struct sockaddr_can addr;
     addr.can_family = AF_CAN;
     addr.can_ifindex = ifr.ifr_ifindex;
-    
-    if (bind(socket_fd_, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+
+    if (bind(socket_fd_, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         close(socket_fd_);
         return can_status::ERR_BIND;
     }
 
     is_initialized_ = true;
-    
+
     return can_status::OK;
 }
 
-can_status can_interface::send(uint32_t can_id, const uint8_t* data, uint8_t len, bool use_brs) {
+can_status can_interface::send(uint32_t can_id,
+                               const uint8_t* data,
+                               uint8_t len,
+                               bool use_brs) {
     if (!is_initialized_) {
         return can_status::ERR_NOT_INITIALIZED;
     }
@@ -70,16 +73,16 @@ can_status can_interface::send(uint32_t can_id, const uint8_t* data, uint8_t len
 
     struct canfd_frame frame;
     memset(&frame, 0, sizeof(frame));
-    
+
     frame.can_id = can_id;
     frame.len = len;
     frame.flags = use_brs ? CANFD_BRS : 0;
-    
+
     if (data != nullptr && len > 0) {
         memcpy(frame.data, data, len);
     }
 
-    if (write(socket_fd_, &frame, sizeof(frame)) != sizeof(frame)) {        
+    if (write(socket_fd_, &frame, sizeof(frame)) != sizeof(frame)) {
         return can_status::ERR_SEND;
     }
 
@@ -92,10 +95,10 @@ can_status can_interface::receive(struct canfd_frame& frame) {
     }
 
     ssize_t nbytes = read(socket_fd_, &frame, sizeof(frame));
-    
+
     if (nbytes != CANFD_MTU) {
         return can_status::ERR_RECEIVE;
-    } 
+    }
 
     return can_status::OK;
 }
@@ -108,7 +111,7 @@ can_status can_interface::receive(struct canfd_frame& frame, int timeout_ms) {
     struct timeval tv;
     tv.tv_sec = timeout_ms / 1000;
     tv.tv_usec = (timeout_ms % 1000) * 1000;
-    
+
     if (setsockopt(socket_fd_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
         return can_status::ERR_SETTING_TIMEOUT;
     }
@@ -117,12 +120,13 @@ can_status can_interface::receive(struct canfd_frame& frame, int timeout_ms) {
 
     if (nbytes != CANFD_MTU) {
         return can_status::ERR_RECEIVE;
-    } 
+    }
 
     return can_status::OK;
 }
 
-can_status can_interface::start_async_receive(std::function<void(const struct canfd_frame&, can_status)> callback) {
+can_status can_interface::start_async_receive(
+    std::function<void(const struct canfd_frame&, can_status)> callback) {
     if (!is_initialized_) {
         return can_status::ERR_NOT_INITIALIZED;
     }
@@ -155,19 +159,22 @@ can_status can_interface::set_filter(uint32_t can_id, uint32_t can_mask) {
     filter.can_id = can_id;
     filter.can_mask = can_mask;
 
-    if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_FILTER, &filter, sizeof(filter)) < 0) {
+    if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_FILTER, &filter,
+                   sizeof(filter)) < 0) {
         return can_status::ERR_SETTING_FILTER;
     }
 
     return can_status::OK;
 }
 
-can_status can_interface::set_filters(const struct can_filter* filters, size_t num_filters) {
+can_status can_interface::set_filters(const struct can_filter* filters,
+                                      size_t num_filters) {
     if (!is_initialized_) {
         return can_status::ERR_NOT_INITIALIZED;
     }
 
-    if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_FILTER, filters, num_filters * sizeof(struct can_filter)) < 0) {
+    if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_FILTER, filters,
+                   num_filters * sizeof(struct can_filter)) < 0) {
         return can_status::ERR_SETTING_FILTER;
     }
 
@@ -183,7 +190,8 @@ can_status can_interface::clear_filters() {
     filter.can_id = 0x0;
     filter.can_mask = 0x0;
 
-    if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_FILTER, &filter, sizeof(filter)) < 0) {
+    if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_FILTER, &filter,
+                   sizeof(filter)) < 0) {
         return can_status::ERR_CLEARING_FILTERS;
     }
 

@@ -1,12 +1,10 @@
 #include "acoustics_interface_ros.hpp"
 
+#include <spdlog/spdlog.h>
 #include <functional>
 #include <memory>
-#include <spdlog/spdlog.h>
 
-AcousticsRosNode::AcousticsRosNode()
-: Node("acoustics_ros_node")
-{
+AcousticsRosNode::AcousticsRosNode() : Node("acoustics_ros_node") {
     publisher_ = this->create_publisher<vortex_msgs::msg::BearingMeasurement>(
         "acoustics/bearing_measurement", 10);
 
@@ -17,10 +15,8 @@ AcousticsRosNode::AcousticsRosNode()
     }
 
     status = driver_.start_async_read(
-        std::bind(&AcousticsRosNode::acoustics_callback,
-                  this,
-                  std::placeholders::_1,
-                  std::placeholders::_2));
+        std::bind(&AcousticsRosNode::acoustics_callback, this,
+                  std::placeholders::_1, std::placeholders::_2));
 
     if (status != can_status::OK) {
         spdlog::error("Failed to start async acoustics read");
@@ -30,8 +26,8 @@ AcousticsRosNode::AcousticsRosNode()
     spdlog::info("Acoustics ROS node started");
 }
 
-void AcousticsRosNode::acoustics_callback(const AcousticsData& data, can_status status)
-{
+void AcousticsRosNode::acoustics_callback(const AcousticsData& data,
+                                          can_status status) {
     if (status != can_status::OK) {
         spdlog::warn("Failed to read acoustics data from CAN");
         return;
@@ -52,8 +48,7 @@ void AcousticsRosNode::acoustics_callback(const AcousticsData& data, can_status 
     publisher_->publish(msg);
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
 
     auto node = std::make_shared<AcousticsRosNode>();
