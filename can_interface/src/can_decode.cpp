@@ -82,21 +82,43 @@ std::string decode_motor_frames(const uint8_t* data, size_t len) {
     }
 }
 
+
 std::string decode_set_gripper_pwm(const uint8_t* data, size_t len) {
-    uint16_t duty_cycle[NUM_ANGLES] = {0};
+    if (len < 2 * NUM_ANGLES) {
+        return "invalid length";
+    }
+
+    char buffer[128];
+    int offset = 0;
 
     for (size_t i = 0; i < NUM_ANGLES; ++i) {
-        uint16_t raw_angle = (static_cast<uint16_t>(data[2 * i + 1]) << 8) |
-                             static_cast<uint16_t>(data[2 * i]);
+        const uint16_t duty_cycle =
+            (static_cast<uint16_t>(data[2 * i + 1]) << 8) |
+            static_cast<uint16_t>(data[2 * i]);
+
+        offset += std::snprintf(
+            buffer + offset,
+            sizeof(buffer) - offset,
+            "PWM%zu=%u%s",
+            i,
+            static_cast<unsigned int>(duty_cycle),
+            (i < NUM_ANGLES - 1) ? ", " : ""
+        );
     }
-    return "";
+
+    return std::string(buffer);
 }
 
+
 std::string decode_gripper_start(const uint8_t* data, size_t len) {
+    (void)data;
+    (void)len;
     return "Starting gripper";
 }
 
 std::string decode_gripper_stop(const uint8_t* data, size_t len) {
+    (void)data;
+    (void)len;
     return "Stopping gripper";
 }
 
