@@ -1,12 +1,12 @@
 #ifndef CAN_INTERFACE_H
 #define CAN_INTERFACE_H
 
-#include <string>
-#include <cstdint>
 #include <linux/can.h>
-#include <functional>
-#include <thread>
 #include <atomic>
+#include <cstdint>
+#include <functional>
+#include <string>
+#include <thread>
 
 enum class can_status {
     OK = 0,
@@ -26,7 +26,7 @@ enum class can_status {
 };
 
 class can_interface {
-private:
+   private:
     int socket_fd_;
     bool is_initialized_;
     std::string interface_name_;
@@ -34,21 +34,26 @@ private:
     std::thread receive_thread_;
     std::atomic<bool> receiving_ = false;
 
-public:
+   public:
     can_interface();
     ~can_interface();
 
     can_status init(const std::string& ifname = "can0");
-    can_status send(uint32_t can_id, const uint8_t* data, uint8_t len, bool use_brs = true);
+    can_status send(uint32_t can_id,
+                    const uint8_t* data,
+                    uint8_t len,
+                    bool use_brs = true);
     can_status receive(struct canfd_frame& frame);
     can_status receive(struct canfd_frame& frame, int timeout_ms);
-    can_status start_async_receive(std::function<void(const struct canfd_frame&, can_status)> callback);
+    can_status start_async_receive(
+        std::function<void(const struct canfd_frame&, can_status)> callback);
     void stop_async_receive();
     can_status set_filter(uint32_t can_id, uint32_t can_mask = 0x7FF);
-    can_status set_filters(const struct can_filter* filters, size_t num_filters);
+    can_status set_filters(const struct can_filter* filters,
+                           size_t num_filters);
     can_status clear_filters();
     bool is_initialized() const;
     std::string get_interface_name() const;
 };
 
-#endif // CAN_INTERFACE_H
+#endif  // CAN_INTERFACE_H

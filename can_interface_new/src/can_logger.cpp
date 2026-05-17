@@ -20,15 +20,17 @@ FastCsvLogger::~FastCsvLogger() {
     }
 }
 
-void FastCsvLogger::log(uint64_t ts_us, uint32_t id, uint8_t dlc, const uint8_t* data) {
+void FastCsvLogger::log(uint64_t ts_us,
+                        uint32_t id,
+                        uint8_t dlc,
+                        const uint8_t* data) {
     if (!file_) {
         return;
     }
 
     char line[128];
     int n = std::snprintf(line, sizeof(line), "%llu,0x%03X,%u,",
-                          static_cast<unsigned long long>(ts_us),
-                          id,
+                          static_cast<unsigned long long>(ts_us), id,
                           static_cast<unsigned>(dlc));
 
     if (n > 0) {
@@ -54,5 +56,3 @@ void FastCsvLogger::flush() {
         buffer_.clear();
     }
 }
-
-

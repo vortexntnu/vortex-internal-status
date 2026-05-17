@@ -1,6 +1,5 @@
 #include "can_registry.hpp"
 
-
 void CanRegistry::add(const CanMessageDef& def) {
     map_[def.id] = def;
 }

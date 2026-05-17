@@ -1,58 +1,66 @@
-#include "can_interface.hpp"
-#include <iostream>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
-#include <thread>
-#include <chrono>
-#include <iomanip>
-#include <sstream>
 #include <initializer_list>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <thread>
+#include "can_interface.hpp"
 
 // ─── CAN IDs ─────────────────────────────────────────────────────────────────
 
 static constexpr uint32_t THRUSTER_CAN_ID = 0x36C;
-static constexpr uint32_t STATUS_CAN_ID   = 0x45A;
+static constexpr uint32_t STATUS_CAN_ID = 0x45A;
 
 // ─── Thruster config ─────────────────────────────────────────────────────────
 
-static constexpr int      NUM_THRUSTERS = 8;
-static constexpr uint16_t PWM_NEUTRAL   = 1500;  // µs
-static constexpr uint16_t PWM_MIN       = 1000;  // µs – max reverse
-static constexpr uint16_t PWM_MAX       = 2000;  // µs – max forward
+static constexpr int NUM_THRUSTERS = 8;
+static constexpr uint16_t PWM_NEUTRAL = 1500;  // µs
+static constexpr uint16_t PWM_MIN = 1000;      // µs – max reverse
+static constexpr uint16_t PWM_MAX = 2000;      // µs – max forward
 
 // Indices (0-based) of the thrusters to ramp. All others stay at neutral.
 // Examples:
 //   single:   { 0 }
 //   pair:     { 0, 3 }
 //   all:      { 0, 1, 2, 3, 4, 5, 6, 7 }
-static constexpr int THRUSTER_INDICES[] = { 0, 1, 2, 3 };
+static constexpr int THRUSTER_INDICES[] = {0, 1, 2, 3};
 
-static constexpr uint16_t RAMP_START    = 1500;  // µs
-static constexpr uint16_t RAMP_END      = 2000;  // µs
-static constexpr uint16_t RAMP_STEP     =   50;  // µs per step
-static constexpr int      STEP_DELAY_MS =  500;  // ms between steps
+static constexpr uint16_t RAMP_START = 1500;  // µs
+static constexpr uint16_t RAMP_END = 2000;    // µs
+static constexpr uint16_t RAMP_STEP = 50;     // µs per step
+static constexpr int STEP_DELAY_MS = 500;     // ms between steps
 
 // ─── 0x45A message type discriminator (data[0]) ──────────────────────────────
 
 enum class StatusMsgType : uint8_t {
     CURRENT_MEASUREMENTS = 0x00,
-    FLT_EVENT            = 0x01,
-    PGOOD_EVENT          = 0x02,
-    KILLSWITCH_EVENT     = 0x03,
+    FLT_EVENT = 0x01,
+    PGOOD_EVENT = 0x02,
+    KILLSWITCH_EVENT = 0x03,
 };
 
-// ─── Parsed message structs ───────────────────────────────────────────────────
+// ─── Parsed message structs
+// ───────────────────────────────────────────────────
 
-struct FltEvent        { uint8_t context; };
-struct PgoodEvent      { uint8_t context; };
-struct KillswitchEvent { };
-struct CurrentMeasurements { float current_A[8]; };
+struct FltEvent {
+    uint8_t context;
+};
+struct PgoodEvent {
+    uint8_t context;
+};
+struct KillswitchEvent {};
+struct CurrentMeasurements {
+    float current_A[8];
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 std::string timestamp() {
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                  std::chrono::steady_clock::now().time_since_epoch()).count();
+                  std::chrono::steady_clock::now().time_since_epoch())
+                  .count();
     std::ostringstream oss;
     oss << "[" << std::setw(8) << std::setfill(' ') << ms % 100000 << "ms]";
     return oss.str();
@@ -61,7 +69,8 @@ std::string timestamp() {
 // Returns true if index is in the THRUSTER_INDICES array.
 bool is_active_thruster(int index) {
     for (int idx : THRUSTER_INDICES) {
-        if (idx == index) return true;
+        if (idx == index)
+            return true;
     }
     return false;
 }
@@ -72,7 +81,7 @@ bool is_active_thruster(int index) {
 void build_thruster_payload(uint8_t* out, uint16_t pulse_width_us) {
     for (int i = 0; i < NUM_THRUSTERS; i++) {
         uint16_t pw = is_active_thruster(i) ? pulse_width_us : PWM_NEUTRAL;
-        out[i * 2]     = static_cast<uint8_t>(pw & 0xFF);
+        out[i * 2] = static_cast<uint8_t>(pw & 0xFF);
         out[i * 2 + 1] = static_cast<uint8_t>((pw >> 8) & 0xFF);
     }
 }
@@ -111,8 +120,8 @@ void handle_current_measurements(const CurrentMeasurements& m) {
     std::cout << timestamp() << " [RX 0x45A] CURRENT_MEASUREMENTS\n";
     std::cout << std::fixed << std::setprecision(3);
     for (int i = 0; i < 8; i++) {
-        std::cout << "  T" << i << (is_active_thruster(i) ? "*" : " ")
-                  << " = " << m.current_A[i] << " A\n";
+        std::cout << "  T" << i << (is_active_thruster(i) ? "*" : " ") << " = "
+                  << m.current_A[i] << " A\n";
     }
 }
 
@@ -127,12 +136,12 @@ void dispatch_status_frame(const struct canfd_frame& frame) {
 
     switch (type) {
         case StatusMsgType::FLT_EVENT: {
-            FltEvent e{ (frame.len >= 2) ? d[1] : uint8_t(0) };
+            FltEvent e{(frame.len >= 2) ? d[1] : uint8_t(0)};
             handle_flt_event(e);
             break;
         }
         case StatusMsgType::PGOOD_EVENT: {
-            PgoodEvent e{ (frame.len >= 2) ? d[1] : uint8_t(0) };
+            PgoodEvent e{(frame.len >= 2) ? d[1] : uint8_t(0)};
             handle_pgood_event(e);
             break;
         }
@@ -142,13 +151,15 @@ void dispatch_status_frame(const struct canfd_frame& frame) {
 
         case StatusMsgType::CURRENT_MEASUREMENTS: {
             if (frame.len < 1 + 8 * static_cast<int>(sizeof(float))) {
-                std::cerr << timestamp() << " [RX 0x45A] ERROR: current frame too short ("
+                std::cerr << timestamp()
+                          << " [RX 0x45A] ERROR: current frame too short ("
                           << (int)frame.len << " bytes)\n";
                 break;
             }
             CurrentMeasurements m;
             for (int i = 0; i < 8; i++) {
-                memcpy(&m.current_A[i], &d[1 + i * sizeof(float)], sizeof(float));
+                memcpy(&m.current_A[i], &d[1 + i * sizeof(float)],
+                       sizeof(float));
             }
             handle_current_measurements(m);
             break;
@@ -159,13 +170,16 @@ void dispatch_status_frame(const struct canfd_frame& frame) {
     }
 }
 
-// ─── Async receive callback ───────────────────────────────────────────────────
+// ─── Async receive callback
+// ───────────────────────────────────────────────────
 
 void can_rx_callback(const struct canfd_frame& frame, can_status status) {
-    if (status != can_status::OK) return;  // 1 s poll timeout – not fatal
+    if (status != can_status::OK)
+        return;  // 1 s poll timeout – not fatal
 
     uint32_t id = frame.can_id & CAN_EFF_MASK;
-    if (id == STATUS_CAN_ID) dispatch_status_frame(frame);
+    if (id == STATUS_CAN_ID)
+        dispatch_status_frame(frame);
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -177,7 +191,8 @@ int main() {
         std::cerr << "Failed to initialize CAN interface on can0\n";
         return 1;
     }
-    std::cout << timestamp() << " CAN initialized on " << can.get_interface_name() << "\n\n";
+    std::cout << timestamp() << " CAN initialized on "
+              << can.get_interface_name() << "\n\n";
 
     if (can.start_async_receive(can_rx_callback) != can_status::OK) {
         std::cerr << "Failed to start async receive\n";
@@ -186,26 +201,33 @@ int main() {
     std::cout << timestamp() << " Async receive running (listening on 0x"
               << std::hex << STATUS_CAN_ID << std::dec << ")\n\n";
 
-    // ── Print test config ─────────────────────────────────────────────────────
-    const int num_active = static_cast<int>(sizeof(THRUSTER_INDICES) / sizeof(THRUSTER_INDICES[0]));
+    // ── Print test config
+    // ─────────────────────────────────────────────────────
+    const int num_active = static_cast<int>(sizeof(THRUSTER_INDICES) /
+                                            sizeof(THRUSTER_INDICES[0]));
 
     std::cout << "Thruster ramp test\n"
               << "  Active thrusters : ";
     for (int i = 0; i < num_active; i++) {
         std::cout << "T" << THRUSTER_INDICES[i];
-        if (i < num_active - 1) std::cout << ", ";
+        if (i < num_active - 1)
+            std::cout << ", ";
     }
     std::cout << "  (" << num_active << " of " << NUM_THRUSTERS << ")\n"
               << "  Ramp             : " << RAMP_START << " µs → " << RAMP_END
-              << " µs  (step " << RAMP_STEP << " µs every " << STEP_DELAY_MS << " ms)\n"
+              << " µs  (step " << RAMP_STEP << " µs every " << STEP_DELAY_MS
+              << " ms)\n"
               << "  Neutral          : " << PWM_NEUTRAL << " µs\n"
-              << "  CAN ID           : 0x" << std::hex << THRUSTER_CAN_ID << std::dec << "\n"
+              << "  CAN ID           : 0x" << std::hex << THRUSTER_CAN_ID
+              << std::dec << "\n"
               << "  (* marks active thrusters in payload printout)\n\n";
 
-    // ── Ramp up ───────────────────────────────────────────────────────────────
+    // ── Ramp up
+    // ───────────────────────────────────────────────────────────────
     std::cout << "── Ramp up ──────────────────────────────────────────────\n";
     int frames_sent = 0;
-    for (uint16_t pw = RAMP_START; pw <= RAMP_END; pw = static_cast<uint16_t>(pw + RAMP_STEP)) {
+    for (uint16_t pw = RAMP_START; pw <= RAMP_END;
+         pw = static_cast<uint16_t>(pw + RAMP_STEP)) {
         uint8_t payload[16];
         build_thruster_payload(payload, pw);
 
@@ -214,25 +236,31 @@ int main() {
                   << THRUSTER_CAN_ID << std::dec << "  pw=" << pw << " µs\n";
         print_thruster_payload(payload);
 
-        if (can.send(THRUSTER_CAN_ID, payload, sizeof(payload), true) != can_status::OK) {
-            std::cerr << timestamp() << " ERROR: send failed at " << pw << " µs\n";
+        if (can.send(THRUSTER_CAN_ID, payload, sizeof(payload), true) !=
+            can_status::OK) {
+            std::cerr << timestamp() << " ERROR: send failed at " << pw
+                      << " µs\n";
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(STEP_DELAY_MS));
     }
 
-    // ── Return to neutral ─────────────────────────────────────────────────────
-    std::cout << "\n── Return to neutral ────────────────────────────────────\n";
+    // ── Return to neutral
+    // ─────────────────────────────────────────────────────
+    std::cout
+        << "\n── Return to neutral ────────────────────────────────────\n";
     {
         uint8_t payload[16];
         build_thruster_payload(payload, PWM_NEUTRAL);
 
         std::cout << timestamp() << " [TX #" << ++frames_sent << "]"
                   << " ID=0x" << std::hex << std::setw(3) << std::setfill('0')
-                  << THRUSTER_CAN_ID << std::dec << "  pw=" << PWM_NEUTRAL << " µs (neutral)\n";
+                  << THRUSTER_CAN_ID << std::dec << "  pw=" << PWM_NEUTRAL
+                  << " µs (neutral)\n";
         print_thruster_payload(payload);
 
-        if (can.send(THRUSTER_CAN_ID, payload, sizeof(payload), true) != can_status::OK) {
+        if (can.send(THRUSTER_CAN_ID, payload, sizeof(payload), true) !=
+            can_status::OK) {
             std::cerr << timestamp() << " ERROR: send failed at neutral\n";
         }
     }
@@ -240,6 +268,7 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     can.stop_async_receive();
 
-    std::cout << "\nTest complete. Sent " << std::dec << frames_sent << " thruster frame(s).\n";
+    std::cout << "\nTest complete. Sent " << std::dec << frames_sent
+              << " thruster frame(s).\n";
     return 0;
 }

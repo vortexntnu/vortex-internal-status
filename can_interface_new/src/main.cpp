@@ -1,11 +1,11 @@
 #include <linux/can.h>
+#include <chrono>
 #include <csignal>
 #include <cstdint>
 #include <cstring>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
-#include <chrono>
 #include <string>
 
 #include "can_decode.hpp"
@@ -53,7 +53,7 @@ static ProgramOptions parse_args(int argc, char* argv[]) {
 
 static void init_registry(CanRegistry& registry) {
     registry.add({0x46D, "Gripper Encoder angles", decode_encoder_angles});
-    registry.add({0x45A, "Motor Controler Frame", decode_motor_frames});
+    registry.add({0x45A, "Motor Controller Frame", decode_motor_frames});
     registry.add({CAN_VOLTAGE_ID, "BMS cell voltages", decode_voltage});
     registry.add({CAN_CURRENT_ID, "BMS current measurement", decode_current});
     registry.add({CAN_ALERT_PFA_1_ID, "BMS alert PFA1", decode_alert_pfa_1});
@@ -63,8 +63,6 @@ static void init_registry(CanRegistry& registry) {
     registry.add({0x780, "Pressure Sample", decode_pressure_sample});
     registry.add({0x100, "Leakage Alarm", decode_leakage_alarm});
 }
-
-
 
 std::string make_log_filename() {
     const std::string log_dir = "/home/vortex/can_logger/";
@@ -76,9 +74,7 @@ std::string make_log_filename() {
     localtime_r(&time, &tm);
 
     std::ostringstream oss;
-    oss << log_dir
-        << "can_log_"
-        << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S")
+    oss << log_dir << "can_log_" << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S")
         << ".csv";
 
     return oss.str();
@@ -88,9 +84,8 @@ static void handle_frame(const canfd_frame& frame,
                          FastCsvLogger& logger,
                          const CanRegistry& registry,
                          bool print_enabled) {
-    uint32_t id = (frame.can_id & CAN_EFF_FLAG)
-                      ? (frame.can_id & CAN_EFF_MASK)
-                      : (frame.can_id & CAN_SFF_MASK);
+    uint32_t id = (frame.can_id & CAN_EFF_FLAG) ? (frame.can_id & CAN_EFF_MASK)
+                                                : (frame.can_id & CAN_SFF_MASK);
 
     uint64_t ts_us = std::chrono::duration_cast<std::chrono::microseconds>(
                          std::chrono::steady_clock::now().time_since_epoch())
@@ -109,12 +104,11 @@ static void handle_frame(const canfd_frame& frame,
         std::string decoded = def->decode(frame.data, frame.len);
 
         std::cout << "ID=0x" << std::hex << id << std::dec
-                  << " LEN=" << static_cast<int>(frame.len) << " "
-                  << def->name << " | " << decoded << '\n';
+                  << " LEN=" << static_cast<int>(frame.len) << " " << def->name
+                  << " | " << decoded << '\n';
     } else {
         std::cout << "ID=0x" << std::hex << id << std::dec
-                  << " LEN=" << static_cast<int>(frame.len)
-                  << " UNKNOWN\n";
+                  << " LEN=" << static_cast<int>(frame.len) << " UNKNOWN\n";
     }
 }
 

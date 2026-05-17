@@ -20,7 +20,7 @@ sudo ip link set up vcan0
 > Note: This does not persist after reboot.
 
 ## Setting Up an Actual CAN Interface
-Example of how to set up a CAN interface that uses CAN FD. Timing parameters needs to be configured to your own needs. These are the values we have used for the motor control unit. 
+Example of how to set up a CAN interface that uses CAN FD. Timing parameters needs to be configured to your own needs. These are the values we have used for the motor control unit.
 ```bash
 sudo ip link set can0 up type can bitrate 50000 sample-point 0.96875 dbitrate 2000000 dsample-point 0.875 fd on
 ```
@@ -46,7 +46,7 @@ int main() {
 
     std::cout << "[main] Starting async receive..." << std::endl;
 
-    // Asynchronous Recieve
+    // Asynchronous Receive
     can.start_async_receive([&frames_received](const struct canfd_frame& frame, can_status status) {
         if (status == can_status::OK) {
             frames_received++;
@@ -63,7 +63,7 @@ int main() {
         can.send(0x123, data, 4);
     }
 
-    // Stop asynchrnously receiving
+    // Stop asynchronously receiving
     can.stop_async_receive();
 
     std::cout << "[main] Done. Total frames received: " << frames_received.load() << std::endl;

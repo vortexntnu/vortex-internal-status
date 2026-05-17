@@ -1,10 +1,10 @@
 #ifndef CAN_REGISTRY_HPP_
 #define CAN_REGISTRY_HPP_
 
-#include <unordered_map>
 #include <cstdint>
-#include <string>
 #include <functional>
+#include <string>
+#include <unordered_map>
 
 struct CanMessageDef {
     uint32_t id;
@@ -13,12 +13,12 @@ struct CanMessageDef {
 };
 
 class CanRegistry {
-public:
+   public:
     void add(const CanMessageDef& def);
     const CanMessageDef* find(uint32_t id) const;
 
-private:
+   private:
     std::unordered_map<uint32_t, CanMessageDef> map_;
 };
 
-#endif // !CAN_REGISTRY_HPP_
+#endif  // !CAN_REGISTRY_HPP_

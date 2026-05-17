@@ -100,7 +100,8 @@ class CsvLogger {
 
         out_.open(filename, std::ios::out | std::ios::app);
         if (!out_) {
-            throw std::runtime_error("Failed to open CSV log file: " + filename);
+            throw std::runtime_error("Failed to open CSV log file: " +
+                                     filename);
         }
 
         if (!file_exists || std::filesystem::file_size(filename) == 0) {
@@ -125,9 +126,7 @@ class CsvLogger {
         const std::string msg_name = message_name(msg_id);
 
         std::lock_guard<std::mutex> lock(mutex_);
-        out_ << ts << ','
-             << to_hex_byte_fast(msg_id) << ','
-             << msg_name << ','
+        out_ << ts << ',' << to_hex_byte_fast(msg_id) << ',' << msg_name << ','
              << status << ',';
 
         if (channel) {
@@ -152,9 +151,7 @@ class CsvLogger {
         const std::string msg_name = message_name(msg_id);
 
         std::lock_guard<std::mutex> lock(mutex_);
-        out_ << ts << ','
-             << to_hex_byte_fast(msg_id) << ','
-             << msg_name << ','
+        out_ << ts << ',' << to_hex_byte_fast(msg_id) << ',' << msg_name << ','
              << status << ",,,";
 
         for (std::size_t i = 0; i < currents.size(); ++i) {
@@ -175,9 +172,7 @@ class CsvLogger {
         const std::string msg_name = message_name(msg_id);
 
         std::lock_guard<std::mutex> lock(mutex_);
-        out_ << ts << ','
-             << to_hex_byte_fast(msg_id) << ','
-             << msg_name << ','
+        out_ << ts << ',' << to_hex_byte_fast(msg_id) << ',' << msg_name << ','
              << status << ",,,"
              << ",,,,,,,,\n";
 
