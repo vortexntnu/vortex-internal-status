@@ -6,7 +6,6 @@
 
 #include "can_decode.hpp"
 #include "can_interface.hpp"
-#include "can_logger.hpp"
 #include "can_registry.hpp"
 
 std::string decode_encoder_angles(const uint8_t* data, size_t len) {

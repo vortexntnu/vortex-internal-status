@@ -10,8 +10,7 @@
 CanInterfaceNode::CanInterfaceNode(const rclcpp::NodeOptions& options)
     : Node("can_interface_node", options) {
     can_interface_name_ =
-        declare_parameter<std::string>("can_interface", "can0");
-    print_enabled_ = declare_parameter<bool>("print", true);
+        declare_parameter<std::string>("can_interface", "vcan0");
     publish_decoded_ = declare_parameter<bool>("publish_decoded", true);
     start_bms_on_startup_ =
         declare_parameter<bool>("start_bms_on_startup", true);
@@ -72,25 +71,6 @@ void CanInterfaceNode::init_registry() {
     registry_.add({0x100, "Leakage Alarm", decode_leakage_alarm});
 }
 
-std::string CanInterfaceNode::make_log_filename() const {
-    auto now = std::chrono::system_clock::now();
-    auto time = std::chrono::system_clock::to_time_t(now);
-
-    std::tm tm{};
-    localtime_r(&time, &tm);
-
-    std::ostringstream oss;
-    oss << log_directory_;
-
-    if (!log_directory_.empty() && log_directory_.back() != '/') {
-        oss << '/';
-    }
-
-    oss << "can_log_" << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S") << ".csv";
-
-    return oss.str();
-}
-
 uint32_t CanInterfaceNode::get_can_id(const canfd_frame& frame) {
     if (frame.can_id & CAN_EFF_FLAG) {
         return frame.can_id & CAN_EFF_MASK;
@@ -143,10 +123,6 @@ void CanInterfaceNode::handle_frame(const canfd_frame& frame) {
     }
 
     const std::string output = oss.str();
-
-    if (print_enabled_) {
-        RCLCPP_INFO(get_logger(), "%s", output.c_str());
-    }
 
     if (publish_decoded_ && decoded_pub_) {
         std_msgs::msg::String msg;
