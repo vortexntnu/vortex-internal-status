@@ -1,9 +1,11 @@
 #ifndef CAN_DECODE_HPP_
+#define CAN_DECODE_HPP_
 
+#include <array>
 #include <cstdint>
+#include <optional>
 #include <string>
 
-#define CAN_DECODE_HPP_
 
 #define NUM_ANGLES 2
 #define CELLS_COUNT 6
@@ -11,9 +13,7 @@
 #define CAN_ID_BOTHOFF_CMD 0x200  // EXAMPLE VALUE
 #define BOTHOFF_CMD_BYTE 0xA5
 #define CAN_TEMP_ID 0x100  // EXAMPLE VALUE
-// #define CAN_VOLTAGE_ID 0x101      //EXAMPLE VALUE
 
-// legg til func for current, pressure, standbymode, reset mcu
 
 #define CAN_PRESSURE_ID 0x102     // EXAMPLE VALUE
 #define CAN_STANDBYMODE_ID 0x103  // EXAMPLE VALUE
@@ -26,20 +26,54 @@
 #define CAN_CURRENT_ID 0x203u
 #define CAN_VOLTAGE_ID 0x204  // EXAMPLE VALUE
 
-std::string decode_alert_ssa(const uint8_t* data, size_t len);
+struct BmsAlertSsa {
+    uint16_t alarm;
+    uint16_t ssa;
+    uint16_t ssb;
+    uint16_t ssc;
+};
 
-std::string decode_alert_pfa_1(const uint8_t* data, size_t len);
+struct BmsAlertPfa1 {
+    uint16_t pfa;
+    uint16_t pfb;
+    uint16_t pfc;
+    uint16_t pfd;
+};
 
-std::string decode_alert_pfa_2(const uint8_t* data, size_t len);
+struct BmsAlertPfa2 {
+    uint16_t fet;
+};
 
-std::string decode_current(const uint8_t* data, size_t len);
+struct BmsCurrent {
+    int16_t current_mA;
+    int32_t current_counts;
+};
 
-std::string decode_temp(const uint8_t* data, size_t len);
+struct BmsTemperatures {
+    std::array<int16_t, 3> temperatures_dC;
+};
 
-std::string decode_voltage(const uint8_t* data, size_t len);
+struct BmsCellVoltages {
+    std::array<uint16_t, CELLS_COUNT> cell_voltages_mV;
+};
 
-std::string decode_pressure_sample(const uint8_t* data, size_t len);
+struct PressureSample {
+    double pressure_hPa;
+};
 
-std::string decode_leakage_alarm(const uint8_t* data, size_t len);
+struct LeakageAlarm {
+    bool active;
+};
+
+// Typed parsers.
+// These are the functions you should use before publishing.
+std::optional<BmsAlertSsa> parse_alert_ssa(const uint8_t* data, size_t len);
+std::optional<BmsAlertPfa1> parse_alert_pfa_1(const uint8_t* data, size_t len);
+std::optional<BmsAlertPfa2> parse_alert_pfa_2(const uint8_t* data, size_t len);
+std::optional<BmsCurrent> parse_current(const uint8_t* data, size_t len);
+std::optional<BmsTemperatures> parse_temp(const uint8_t* data, size_t len);
+std::optional<BmsCellVoltages> parse_voltage(const uint8_t* data, size_t len);
+std::optional<PressureSample> parse_pressure_sample(const uint8_t* data, size_t len);
+std::optional<LeakageAlarm> parse_leakage_alarm(const uint8_t* data, size_t len);
 
 #endif  // !CAN_DECODE_HPP_

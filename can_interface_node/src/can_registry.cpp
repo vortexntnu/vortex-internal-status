@@ -1,13 +1,17 @@
 #include "can_registry.hpp"
 
-void CanRegistry::add(const CanMessageDef& def) {
+void CanRegistry::add(const CanMessageDef& def)
+{
     map_[def.id] = def;
 }
 
-const CanMessageDef* CanRegistry::find(uint32_t id) const {
-    auto it = map_.find(id);
-    if (it != map_.end()) {
-        return &it->second;
+const CanMessageDef* CanRegistry::find(uint32_t id) const
+{
+    const auto it = map_.find(id);
+
+    if (it == map_.end()) {
+        return nullptr;
     }
-    return nullptr;
+
+    return &it->second;
 }

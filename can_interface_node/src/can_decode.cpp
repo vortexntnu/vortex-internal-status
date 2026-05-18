@@ -1,164 +1,141 @@
-#include <linux/can.h>
-#include <csignal>
-#include <cstdint>
-#include <cstring>
-#include <iostream>
-
 #include "can_decode.hpp"
-#include "can_interface.hpp"
-#include "can_registry.hpp"
 
-std::string decode_alert_ssa(const uint8_t* data, size_t len) {
-    if (len < 8) {
-        return "invalid length";
-    }
+#include <cstring>
+#include <cstdio>
 
-    uint16_t alarm =
-        (static_cast<uint16_t>(data[1]) << 8) | static_cast<uint16_t>(data[0]);
+namespace {
 
-    uint16_t ssa =
-        (static_cast<uint16_t>(data[3]) << 8) | static_cast<uint16_t>(data[2]);
-
-    uint16_t ssb =
-        (static_cast<uint16_t>(data[5]) << 8) | static_cast<uint16_t>(data[4]);
-
-    uint16_t ssc =
-        (static_cast<uint16_t>(data[7]) << 8) | static_cast<uint16_t>(data[6]);
-
-    char buffer[128];
-    std::snprintf(
-        buffer, sizeof(buffer), "alert=0x%04X,ssa=0x%04X,ssb=0x%04X,ssc=0x%04X",
-        static_cast<unsigned int>(alarm), static_cast<unsigned int>(ssa),
-        static_cast<unsigned int>(ssb), static_cast<unsigned int>(ssc));
-
-    return std::string(buffer);
+uint16_t read_u16_le(const uint8_t* data)
+{
+    return static_cast<uint16_t>(data[0]) |
+           static_cast<uint16_t>(data[1]) << 8;
 }
 
-std::string decode_alert_pfa_1(const uint8_t* data, size_t len) {
-    if (len < 8) {
-        return "invalid length";
-    }
-
-    uint16_t pfa =
-        (static_cast<uint16_t>(data[1]) << 8) | static_cast<uint16_t>(data[0]);
-
-    uint16_t pfb =
-        (static_cast<uint16_t>(data[3]) << 8) | static_cast<uint16_t>(data[2]);
-
-    uint16_t pfc =
-        (static_cast<uint16_t>(data[5]) << 8) | static_cast<uint16_t>(data[4]);
-
-    uint16_t pfd =
-        (static_cast<uint16_t>(data[7]) << 8) | static_cast<uint16_t>(data[6]);
-
-    char buffer[128];
-    std::snprintf(
-        buffer, sizeof(buffer), "pfa=0x%04X,pfb=0x%04X,pfc=0x%04X,pfd=0x%04X",
-        static_cast<unsigned int>(pfa), static_cast<unsigned int>(pfb),
-        static_cast<unsigned int>(pfc), static_cast<unsigned int>(pfd));
-
-    return std::string(buffer);
+int16_t read_i16_le(const uint8_t* data)
+{
+    return static_cast<int16_t>(read_u16_le(data));
 }
 
-std::string decode_alert_pfa_2(const uint8_t* data, size_t len) {
+uint32_t read_u32_le(const uint8_t* data)
+{
+    return static_cast<uint32_t>(data[0]) |
+           static_cast<uint32_t>(data[1]) << 8 |
+           static_cast<uint32_t>(data[2]) << 16 |
+           static_cast<uint32_t>(data[3]) << 24;
+}
+
+int32_t read_i32_le(const uint8_t* data)
+{
+    return static_cast<int32_t>(read_u32_le(data));
+}
+
+}  // namespace
+
+std::optional<BmsAlertSsa> parse_alert_ssa(const uint8_t* data, size_t len)
+{
+    if (len < 8) {
+        return std::nullopt;
+    }
+
+    BmsAlertSsa result{};
+    result.alarm = read_u16_le(&data[0]);
+    result.ssa = read_u16_le(&data[2]);
+    result.ssb = read_u16_le(&data[4]);
+    result.ssc = read_u16_le(&data[6]);
+
+    return result;
+}
+
+std::optional<BmsAlertPfa1> parse_alert_pfa_1(const uint8_t* data, size_t len)
+{
+    if (len < 8) {
+        return std::nullopt;
+    }
+
+    BmsAlertPfa1 result{};
+    result.pfa = read_u16_le(&data[0]);
+    result.pfb = read_u16_le(&data[2]);
+    result.pfc = read_u16_le(&data[4]);
+    result.pfd = read_u16_le(&data[6]);
+
+    return result;
+}
+
+std::optional<BmsAlertPfa2> parse_alert_pfa_2(const uint8_t* data, size_t len)
+{
     if (len < 2) {
-        return "invalid length";
+        return std::nullopt;
     }
 
-    uint16_t fet =
-        (static_cast<uint16_t>(data[1]) << 8) | static_cast<uint16_t>(data[0]);
+    BmsAlertPfa2 result{};
+    result.fet = read_u16_le(&data[0]);
 
-    char buffer[64];
-    std::snprintf(buffer, sizeof(buffer), "fet=0x%04X",
-                  static_cast<unsigned int>(fet));
-
-    return std::string(buffer);
+    return result;
 }
 
-std::string decode_current(const uint8_t* data, size_t len) {
+
+std::optional<BmsCurrent> parse_current(const uint8_t* data, size_t len)
+{
     if (len < 6) {
-        return "invalid length";
+        return std::nullopt;
     }
 
-    // --- Decode 16-bit current ---
-    uint16_t raw_current =
-        (static_cast<uint16_t>(data[1]) << 8) | static_cast<uint16_t>(data[0]);
+    BmsCurrent result{};
+    result.current_mA = read_i16_le(&data[0]);
+    result.current_counts = read_i32_le(&data[2]);
 
-    int16_t current = static_cast<int16_t>(raw_current);
-
-    // --- Decode 32-bit raw CC2 counts ---
-    uint32_t raw_counts = (static_cast<uint32_t>(data[5]) << 24) |
-                          (static_cast<uint32_t>(data[4]) << 16) |
-                          (static_cast<uint32_t>(data[3]) << 8) |
-                          static_cast<uint32_t>(data[2]);
-
-    int32_t current_counts = static_cast<int32_t>(raw_counts);
-
-    char buffer[128];
-    std::snprintf(buffer, sizeof(buffer), "current=%d mA, counts=%ld",
-                  static_cast<int>(current), static_cast<long>(current_counts));
-
-    return std::string(buffer);
+    return result;
 }
 
-std::string decode_temp(const uint8_t* data, size_t len) {
+std::optional<BmsTemperatures> parse_temp(const uint8_t* data, size_t len)
+{
     if (len < 6) {
-        return "invalid length";
+        return std::nullopt;
     }
 
-    int16_t t1 = static_cast<int16_t>((static_cast<uint16_t>(data[1]) << 8) |
-                                      static_cast<uint16_t>(data[0]));
+    BmsTemperatures result{};
+    result.temperatures_dC[0] = read_i16_le(&data[0]);
+    result.temperatures_dC[1] = read_i16_le(&data[2]);
+    result.temperatures_dC[2] = read_i16_le(&data[4]);
 
-    int16_t t2 = static_cast<int16_t>((static_cast<uint16_t>(data[3]) << 8) |
-                                      static_cast<uint16_t>(data[2]));
-
-    int16_t t3 = static_cast<int16_t>((static_cast<uint16_t>(data[5]) << 8) |
-                                      static_cast<uint16_t>(data[4]));
-
-    char buffer[128];
-    std::snprintf(buffer, sizeof(buffer), "t1=%d dC,t2=%d dC,t3=%d dC",
-                  static_cast<int>(t1), static_cast<int>(t2),
-                  static_cast<int>(t3));
-
-    return std::string(buffer);
+    return result;
 }
 
-std::string decode_voltage(const uint8_t* data, size_t len) {
+std::optional<BmsCellVoltages> parse_voltage(const uint8_t* data, size_t len)
+{
     if (len < 2 * CELLS_COUNT) {
-        return "invalid length";
+        return std::nullopt;
     }
 
-    char buffer[256];
-    int offset = 0;
+    BmsCellVoltages result{};
 
     for (size_t i = 0; i < CELLS_COUNT; ++i) {
-        uint16_t cell_mV = (static_cast<uint16_t>(data[2 * i + 1]) << 8) |
-                           static_cast<uint16_t>(data[2 * i]);
-
-        offset += std::snprintf(buffer + offset, sizeof(buffer) - offset,
-                                "cell%zu=%u mV%s", i + 1,
-                                static_cast<unsigned int>(cell_mV),
-                                (i < CELLS_COUNT - 1) ? ", " : "");
+        result.cell_voltages_mV[i] = read_u16_le(&data[2 * i]);
     }
 
-    return std::string(buffer);
+    return result;
 }
 
-std::string decode_pressure_sample(const uint8_t* data, size_t len) {
+
+std::optional<PressureSample> parse_pressure_sample(const uint8_t* data, size_t len)
+{
     if (len < sizeof(double)) {
-        return "invalid length";
+        return std::nullopt;
     }
 
-    double pressure_hpa = 0.0;
-    std::memcpy(&pressure_hpa, data, sizeof(double));
+    PressureSample result{};
+    std::memcpy(&result.pressure_hPa, data, sizeof(double));
 
-    char buffer[128];
-    std::snprintf(buffer, sizeof(buffer), "P=%.6f hPa", pressure_hpa);
-    return std::string(buffer);
+    return result;
 }
 
-std::string decode_leakage_alarm(const uint8_t* data, size_t len) {
+std::optional<LeakageAlarm> parse_leakage_alarm(const uint8_t* data, size_t len)
+{
     (void)data;
     (void)len;
-    return "LEAKAGE ALARM";
+
+    LeakageAlarm result{};
+    result.active = true;
+
+    return result;
 }

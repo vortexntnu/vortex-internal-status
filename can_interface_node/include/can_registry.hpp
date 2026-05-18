@@ -5,19 +5,20 @@
 #include <functional>
 #include <string>
 #include <unordered_map>
+#include <linux/can.h>
 
 struct CanMessageDef {
     uint32_t id;
     const char* name;
-    std::function<std::string(const uint8_t* data, size_t len)> decode;
+    std::function<void(const canfd_frame& frame)> handle;
 };
 
 class CanRegistry {
-   public:
+public:
     void add(const CanMessageDef& def);
     const CanMessageDef* find(uint32_t id) const;
 
-   private:
+private:
     std::unordered_map<uint32_t, CanMessageDef> map_;
 };
 
