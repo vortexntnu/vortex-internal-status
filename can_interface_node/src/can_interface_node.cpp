@@ -1,72 +1,78 @@
-#include <linux/can.h>
+#include "can_interface_node.hpp"
+
 #include <chrono>
-#include <csignal>
-#include <cstdint>
-#include <cstring>
 #include <iomanip>
-#include <iostream>
 #include <sstream>
-#include <string>
+#include <stdexcept>
 
 #include "can_decode.hpp"
-#include "can_interface.hpp"
-#include "can_logger.hpp"
-#include "can_registry.hpp"
 
-static volatile std::sig_atomic_t g_running = 1;
+CanInterfaceNode::CanInterfaceNode(const rclcpp::NodeOptions& options)
+    : Node("can_interface_node", options) {
+    can_interface_name_ =
+        declare_parameter<std::string>("can_interface", "can0");
+    print_enabled_ = declare_parameter<bool>("print", true);
+    publish_decoded_ = declare_parameter<bool>("publish_decoded", true);
+    start_bms_on_startup_ =
+        declare_parameter<bool>("start_bms_on_startup", true);
 
-void signal_handler(int) {
-    g_running = 0;
-}
+    init_registry();
 
-struct ProgramOptions {
-    bool print = false;
-    std::string can_interface_name = "can0";
-};
 
-static ProgramOptions parse_args(int argc, char* argv[]) {
-    ProgramOptions opts;
-
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-
-        if (arg == "--print" || arg == "-p") {
-            opts.print = true;
-        } else if ((arg == "--interface" || arg == "-i") && i + 1 < argc) {
-            opts.can_interface_name = argv[++i];
-        } else if (arg == "--help" || arg == "-h") {
-            std::cout
-                << "Usage: " << argv[0] << " [--print] [--interface can0]\n"
-                << "  --print, -p        Print decoded frames to stdout\n"
-                << "  --interface, -i    CAN interface name (default: can0)\n"
-                << "  --help, -h         Show this help\n";
-            std::exit(0);
-        } else {
-            std::cerr << "Unknown argument: " << arg << "\n";
-            std::cerr << "Use --help for usage.\n";
-            std::exit(1);
-        }
+    const can_status status = can_.init(can_interface_name_.c_str());
+    if (status != can_status::OK) {
+        throw std::runtime_error("Failed to init CAN interface: " +
+                                 can_interface_name_);
     }
 
-    return opts;
+    if (publish_decoded_) {
+        decoded_pub_ =
+            create_publisher<std_msgs::msg::String>("can/decoded", 10);
+    }
+
+    if (start_bms_on_startup_) {
+        uint8_t dummy = 0;
+        can_.send(0x215, &dummy, 1);
+        RCLCPP_INFO(get_logger(), "Sent BMS start command");
+    }
+
+    running_.store(true);
+    receive_thread_ = std::thread(&CanInterfaceNode::receive_loop, this);
+
+    RCLCPP_INFO(get_logger(), "CAN interface node listening on %s",
+                can_interface_name_.c_str());
 }
 
-static void init_registry(CanRegistry& registry) {
-    registry.add({0x46D, "Gripper Encoder angles", decode_encoder_angles});
-    registry.add({0x45A, "Motor Controller Frame", decode_motor_frames});
-    registry.add({CAN_VOLTAGE_ID, "BMS cell voltages", decode_voltage});
-    registry.add({CAN_CURRENT_ID, "BMS current measurement", decode_current});
-    registry.add({CAN_ALERT_PFA_1_ID, "BMS alert PFA1", decode_alert_pfa_1});
-    registry.add({CAN_ALERT_PFA_2_ID, "BMS alert PFA2", decode_alert_pfa_2});
-    registry.add({CAN_ALERT_SSA_ID, "BMS alert SSA", decode_alert_ssa});
-    registry.add({CAN_TEMP_ID, "BMS Temparture", decode_temp});
-    registry.add({0x780, "Pressure Sample", decode_pressure_sample});
-    registry.add({0x100, "Leakage Alarm", decode_leakage_alarm});
+CanInterfaceNode::~CanInterfaceNode() {
+    running_.store(false);
+
+    if (receive_thread_.joinable()) {
+        receive_thread_.join();
+    }
+
+    if (start_bms_on_startup_) {
+        uint8_t dummy = 0;
+        can_.send(0x216, &dummy, 1);
+        RCLCPP_INFO(get_logger(), "Sent BMS stop command");
+    }
+
+    RCLCPP_INFO(get_logger(), "CAN interface node stopped");
 }
 
-std::string make_log_filename() {
-    const std::string log_dir = "/home/vortex/can_logger/";
+void CanInterfaceNode::init_registry() {
+    registry_.add({0x46D, "Gripper Encoder angles", decode_encoder_angles});
+    registry_.add({0x45A, "Motor Controller Frame", decode_motor_frames});
+    registry_.add({CAN_VOLTAGE_ID, "BMS cell voltages", decode_voltage});
+    registry_.add({CAN_CURRENT_ID, "BMS current measurement", decode_current});
+    registry_.add({CAN_ALERT_PFA_1_ID, "BMS alert PFA1", decode_alert_pfa_1});
+    registry_.add({CAN_ALERT_PFA_2_ID, "BMS alert PFA2", decode_alert_pfa_2});
+    registry_.add({CAN_ALERT_SSA_ID, "BMS alert SSA", decode_alert_ssa});
+    registry_.add({CAN_TEMP_ID, "BMS Temperature", decode_temp});
+    registry_.add({0x780, "Pressure Sample", decode_pressure_sample});
+    registry_.add({0x100, "Leakage Alarm", decode_leakage_alarm});
+}
 
+std::string CanInterfaceNode::make_log_filename() const {
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);
 
@@ -74,94 +80,84 @@ std::string make_log_filename() {
     localtime_r(&time, &tm);
 
     std::ostringstream oss;
-    oss << log_dir << "can_log_" << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S")
-        << ".csv";
+    oss << log_directory_;
+
+    if (!log_directory_.empty() && log_directory_.back() != '/') {
+        oss << '/';
+    }
+
+    oss << "can_log_" << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S") << ".csv";
 
     return oss.str();
 }
 
-static void handle_frame(const canfd_frame& frame,
-                         FastCsvLogger& logger,
-                         const CanRegistry& registry,
-                         bool print_enabled) {
-    uint32_t id = (frame.can_id & CAN_EFF_FLAG) ? (frame.can_id & CAN_EFF_MASK)
-                                                : (frame.can_id & CAN_SFF_MASK);
-
-    uint64_t ts_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                         std::chrono::steady_clock::now().time_since_epoch())
-                         .count();
-
-    // Always log
-    logger.log(ts_us, id, frame.len, frame.data);
-
-    // Only print when enabled
-    if (!print_enabled) {
-        return;
+uint32_t CanInterfaceNode::get_can_id(const canfd_frame& frame) {
+    if (frame.can_id & CAN_EFF_FLAG) {
+        return frame.can_id & CAN_EFF_MASK;
     }
 
-    const CanMessageDef* def = registry.find(id);
-    if (def) {
-        std::string decoded = def->decode(frame.data, frame.len);
-
-        std::cout << "ID=0x" << std::hex << id << std::dec
-                  << " LEN=" << static_cast<int>(frame.len) << " " << def->name
-                  << " | " << decoded << '\n';
-    } else {
-        std::cout << "ID=0x" << std::hex << id << std::dec
-                  << " LEN=" << static_cast<int>(frame.len) << " UNKNOWN\n";
-    }
+    return frame.can_id & CAN_SFF_MASK;
 }
 
-int main(int argc, char* argv[]) {
-    std::signal(SIGINT, signal_handler);
-    std::signal(SIGTERM, signal_handler);
+uint64_t CanInterfaceNode::steady_time_us() {
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
 
-    ProgramOptions opts = parse_args(argc, argv);
-
-    CanRegistry registry;
-    init_registry(registry);
-
-    FastCsvLogger logger(make_log_filename().c_str(), 4096);
-
-    can_interface can;
-    can_status status = can.init(opts.can_interface_name.c_str());
-    if (status != can_status::OK) {
-        std::cerr << "Failed to init " << opts.can_interface_name << "\n";
-        return 1;
-    }
-
-    uint8_t dummy = 0;
-
-    // Start BMS send
-    can.send(0x215, &dummy, 1);
-
-    if (opts.print) {
-        std::cout << "Listening on " << opts.can_interface_name
-                  << ". Press Ctrl+C to stop.\n";
-    }
-
-    while (g_running) {
+void CanInterfaceNode::receive_loop() {
+    while (rclcpp::ok() && running_.load()) {
         canfd_frame frame{};
 
-        status = can.receive(frame, 1000);
+        const can_status status = can_.receive(frame, 1000);
+
         if (status == can_status::OK) {
-            handle_frame(frame, logger, registry, opts.print);
+            handle_frame(frame);
         } else if (status == can_status::ERR_RECEIVE) {
             continue;
         } else {
-            std::cerr << "Receive error\n";
+            RCLCPP_ERROR(get_logger(), "CAN receive error");
             break;
         }
     }
+}
 
-    // Stop BMS send
-    can.send(0x216, &dummy, 1);
+void CanInterfaceNode::handle_frame(const canfd_frame& frame) {
+    const uint32_t id = get_can_id(frame);
+    const uint64_t ts_us = steady_time_us();
 
-    logger.flush();
 
-    if (opts.print) {
-        std::cout << "Stopped.\n";
+    const CanMessageDef* def = registry_.find(id);
+
+    std::ostringstream oss;
+
+    if (def) {
+        const std::string decoded = def->decode(frame.data, frame.len);
+
+        oss << "ID=0x" << std::hex << id << std::dec
+            << " LEN=" << static_cast<int>(frame.len) << " " << def->name
+            << " | " << decoded;
+    } else {
+        oss << "ID=0x" << std::hex << id << std::dec
+            << " LEN=" << static_cast<int>(frame.len) << " UNKNOWN";
     }
 
+    const std::string output = oss.str();
+
+    if (print_enabled_) {
+        RCLCPP_INFO(get_logger(), "%s", output.c_str());
+    }
+
+    if (publish_decoded_ && decoded_pub_) {
+        std_msgs::msg::String msg;
+        msg.data = output;
+        decoded_pub_->publish(msg);
+    }
+}
+int main(int argc, char* argv[]) {
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<CanInterfaceNode>();
+    rclcpp::spin(node);
+    rclcpp::shutdown();
     return 0;
 }
