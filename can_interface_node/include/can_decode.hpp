@@ -26,16 +26,6 @@
 #define CAN_CURRENT_ID 0x203u
 #define CAN_VOLTAGE_ID 0x204  // EXAMPLE VALUE
 
-std::string decode_encoder_angles(const uint8_t* data, size_t len);
-
-std::string decode_motor_frames(const uint8_t* data, size_t len);
-
-std::string decode_set_gripper_pwm(const uint8_t* data, size_t len);
-
-std::string decode_gripper_start(const uint8_t* data, size_t len);
-
-std::string decode_gripper_stop(const uint8_t* data, size_t len);
-
 std::string decode_alert_ssa(const uint8_t* data, size_t len);
 
 std::string decode_alert_pfa_1(const uint8_t* data, size_t len);
