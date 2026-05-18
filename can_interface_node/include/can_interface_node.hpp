@@ -34,7 +34,6 @@ private:
     std::string make_log_filename() const;
 
     static uint32_t get_can_id(const canfd_frame& frame);
-    static uint64_t steady_time_us();
 
     void receive_loop();
     void handle_frame(const canfd_frame& frame);
