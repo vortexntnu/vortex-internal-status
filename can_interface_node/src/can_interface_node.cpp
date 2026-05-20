@@ -145,36 +145,22 @@ uint32_t CanInterfaceNode::get_can_id(const canfd_frame& frame) {
 //     }
 // }
 void CanInterfaceNode::receive_loop() {
-    RCLCPP_INFO(get_logger(), "[RX LOOP] started");
-
     while (rclcpp::ok() && running_.load()) {
         canfd_frame frame{};
 
-        RCLCPP_INFO(get_logger(), "[RX LOOP] waiting for CAN frame");
 
         const can_status status = can_.receive(frame, 1000);
 
-        RCLCPP_INFO(get_logger(), "[RX LOOP] receive returned status=%d",
-                    static_cast<int>(status));
-
         if (status == can_status::OK) {
-            RCLCPP_INFO(get_logger(),
-                        "[RX LOOP] received frame raw_can_id=0x%X len=%u",
-                        frame.can_id, static_cast<unsigned int>(frame.len));
-
             handle_frame(frame);
 
-            RCLCPP_INFO(get_logger(), "[RX LOOP] handle_frame returned");
         } else if (status == can_status::ERR_RECEIVE) {
-            RCLCPP_INFO(get_logger(), "[RX LOOP] receive timeout/no frame");
             continue;
         } else {
-            RCLCPP_ERROR(get_logger(), "[RX LOOP] CAN receive error");
             break;
         }
     }
 
-    RCLCPP_INFO(get_logger(), "[RX LOOP] exiting");
 }
 
 void CanInterfaceNode::handle_frame(const canfd_frame& frame) {
@@ -224,7 +210,6 @@ void CanInterfaceNode::handle_bms_current(const canfd_frame& frame) {
     bms_current_counts_pub_->publish(counts_msg);
 }
 void CanInterfaceNode::handle_pressure_sample(const canfd_frame& frame) {
-    RCLCPP_INFO(get_logger(), "Pressure/temperature handler called");
 
     if (!pressure_pub_) {
         RCLCPP_ERROR(get_logger(), "pressure_pub_ is null");
@@ -244,9 +229,6 @@ void CanInterfaceNode::handle_pressure_sample(const canfd_frame& frame) {
                     static_cast<unsigned int>(frame.len));
         return;
     }
-
-    RCLCPP_INFO(get_logger(), "Publishing pressure=%.3f Pa, temperature=%.3f C",
-                parsed->pressure_pa, parsed->temperature_c);
 
     std_msgs::msg::Float32 pressure_msg;
     pressure_msg.data = parsed->pressure_pa;
@@ -305,34 +287,28 @@ void CanInterfaceNode::handle_bms_alert_pfa1(const canfd_frame& frame) {
 }
 
 void CanInterfaceNode::handle_bms_alert_pfa2(const canfd_frame& frame) {
-    RCLCPP_INFO(get_logger(), "[PFA2] handler entered, len=%u", frame.len);
 
     if (!bms_alert_pfa2_pub_) {
         RCLCPP_ERROR(get_logger(), "[PFA2] bms_alert_pfa2_pub_ is null");
         return;
     }
 
-    RCLCPP_INFO(get_logger(), "[PFA2] publisher exists");
 
     const auto parsed = parse_alert_pfa_2(frame.data, frame.len);
 
-    RCLCPP_INFO(get_logger(), "[PFA2] parser returned");
 
     if (!parsed) {
         RCLCPP_WARN(get_logger(), "[PFA2] invalid BMS PFA2 alert frame");
         return;
     }
 
-    RCLCPP_INFO(get_logger(), "[PFA2] parsed fet=0x%04X", parsed->fet);
 
     std_msgs::msg::UInt16 msg;
     msg.data = parsed->fet;
 
-    RCLCPP_INFO(get_logger(), "[PFA2] publishing");
 
     bms_alert_pfa2_pub_->publish(msg);
 
-    RCLCPP_INFO(get_logger(), "[PFA2] publish done");
 }
 
 void CanInterfaceNode::handle_leakage_alarm(const canfd_frame& frame) {
