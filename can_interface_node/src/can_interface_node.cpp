@@ -195,7 +195,7 @@ void CanInterfaceNode::handle_frame(const canfd_frame& frame) {
 
     const CanMessageDef* def = registry_.find(id);
 
-    if (def->handle) {
+    if (def != nullptr) {
         def->handle(frame);
     }
 }
