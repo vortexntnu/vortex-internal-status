@@ -11,7 +11,7 @@
 CanInterfaceNode::CanInterfaceNode(const rclcpp::NodeOptions& options)
     : Node("can_interface_node", options) {
     can_interface_name_ =
-        declare_parameter<std::string>("can_interface", "vcan0");
+        declare_parameter<std::string>("can_interface", "can0");
 
     start_bms_on_startup_ =
         declare_parameter<bool>("start_bms_on_startup", true);
