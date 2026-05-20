@@ -8,10 +8,8 @@
 
 #include "can_decode.hpp"
 
-
 CanInterfaceNode::CanInterfaceNode(const rclcpp::NodeOptions& options)
-    : Node("can_interface_node", options)
-{
+    : Node("can_interface_node", options) {
     can_interface_name_ =
         declare_parameter<std::string>("can_interface", "vcan0");
 
@@ -19,41 +17,35 @@ CanInterfaceNode::CanInterfaceNode(const rclcpp::NodeOptions& options)
         declare_parameter<bool>("start_bms_on_startup", true);
 
     // 1. Create all publishers first
-    bms_cell_voltages_pub_ =
-        create_publisher<std_msgs::msg::Float32MultiArray>(
-            "bms/cell_voltages", 10);
+    bms_cell_voltages_pub_ = create_publisher<std_msgs::msg::Float32MultiArray>(
+        "bms/cell_voltages", 10);
 
     bms_current_pub_ =
-        create_publisher<std_msgs::msg::Float32>(
-            "bms/current", 10);
+        create_publisher<std_msgs::msg::Float32>("bms/current", 10);
 
     bms_current_counts_pub_ =
-        create_publisher<std_msgs::msg::Int32>(
-            "bms/current_counts", 10);
+        create_publisher<std_msgs::msg::Int32>("bms/current_counts", 10);
 
-    bms_temperatures_pub_ =
-        create_publisher<std_msgs::msg::Float32MultiArray>(
-            "bms/temperatures", 10);
+    bms_temperatures_pub_ = create_publisher<std_msgs::msg::Float32MultiArray>(
+        "bms/temperatures", 10);
 
     bms_alert_ssa_pub_ =
-        create_publisher<std_msgs::msg::UInt16MultiArray>(
-            "bms/alerts/ssa", 10);
+        create_publisher<std_msgs::msg::UInt16MultiArray>("bms/alerts/ssa", 10);
 
-    bms_alert_pfa1_pub_ =
-        create_publisher<std_msgs::msg::UInt16MultiArray>(
-            "bms/alerts/pfa1", 10);
+    bms_alert_pfa1_pub_ = create_publisher<std_msgs::msg::UInt16MultiArray>(
+        "bms/alerts/pfa1", 10);
 
     bms_alert_pfa2_pub_ =
-        create_publisher<std_msgs::msg::UInt16>(
-            "bms/alerts/pfa2", 10);
+        create_publisher<std_msgs::msg::UInt16>("bms/alerts/pfa2", 10);
 
     pressure_pub_ =
-        create_publisher<std_msgs::msg::Float64>(
-            "pressure/pressure", 10);
+        create_publisher<std_msgs::msg::Float32>("pressure/pressure", 10);
+
+    pressure_temperature_pub_ =
+        create_publisher<std_msgs::msg::Float32>("pressure/temperature", 10);
 
     leakage_alarm_pub_ =
-        create_publisher<std_msgs::msg::Bool>(
-            "leakage/alarm", 10);
+        create_publisher<std_msgs::msg::Bool>("leakage/alarm", 10);
 
     // 2. Register handlers
     init_registry();
@@ -61,8 +53,8 @@ CanInterfaceNode::CanInterfaceNode(const rclcpp::NodeOptions& options)
     // 3. Init CAN
     const can_status status = can_.init(can_interface_name_.c_str());
     if (status != can_status::OK) {
-        throw std::runtime_error(
-            "Failed to init CAN interface: " + can_interface_name_);
+        throw std::runtime_error("Failed to init CAN interface: " +
+                                 can_interface_name_);
     }
 
     // 4. Optional startup command
@@ -76,10 +68,8 @@ CanInterfaceNode::CanInterfaceNode(const rclcpp::NodeOptions& options)
     running_.store(true);
     receive_thread_ = std::thread(&CanInterfaceNode::receive_loop, this);
 
-    RCLCPP_INFO(
-        get_logger(),
-        "CAN interface node listening on %s",
-        can_interface_name_.c_str());
+    RCLCPP_INFO(get_logger(), "CAN interface node listening on %s",
+                can_interface_name_.c_str());
 }
 
 CanInterfaceNode::~CanInterfaceNode() {
@@ -137,7 +127,6 @@ uint32_t CanInterfaceNode::get_can_id(const canfd_frame& frame) {
     return frame.can_id & CAN_SFF_MASK;
 }
 
-
 //
 // void CanInterfaceNode::receive_loop() {
 //     while (rclcpp::ok() && running_.load()) {
@@ -155,8 +144,7 @@ uint32_t CanInterfaceNode::get_can_id(const canfd_frame& frame) {
 //         }
 //     }
 // }
-void CanInterfaceNode::receive_loop()
-{
+void CanInterfaceNode::receive_loop() {
     RCLCPP_INFO(get_logger(), "[RX LOOP] started");
 
     while (rclcpp::ok() && running_.load()) {
@@ -172,8 +160,7 @@ void CanInterfaceNode::receive_loop()
         if (status == can_status::OK) {
             RCLCPP_INFO(get_logger(),
                         "[RX LOOP] received frame raw_can_id=0x%X len=%u",
-                        frame.can_id,
-                        static_cast<unsigned int>(frame.len));
+                        frame.can_id, static_cast<unsigned int>(frame.len));
 
             handle_frame(frame);
 
@@ -236,27 +223,38 @@ void CanInterfaceNode::handle_bms_current(const canfd_frame& frame) {
     counts_msg.data = parsed->current_counts;
     bms_current_counts_pub_->publish(counts_msg);
 }
-
-void CanInterfaceNode::handle_pressure_sample(const canfd_frame& frame)
-{
-    RCLCPP_INFO(get_logger(), "Pressure handler called");
+void CanInterfaceNode::handle_pressure_sample(const canfd_frame& frame) {
+    RCLCPP_INFO(get_logger(), "Pressure/temperature handler called");
 
     if (!pressure_pub_) {
         RCLCPP_ERROR(get_logger(), "pressure_pub_ is null");
         return;
     }
 
-    const auto parsed = parse_pressure_sample(frame.data, frame.len);
-
-    if (!parsed) {
-        RCLCPP_WARN(get_logger(), "Invalid pressure sample frame");
+    if (!pressure_temperature_pub_) {
+        RCLCPP_ERROR(get_logger(), "pressure_temperature_pub_ is null");
         return;
     }
 
-    std_msgs::msg::Float64 msg;
-    msg.data = parsed->pressure_hPa;
+    const auto parsed = parse_pressure_sample(frame.data, frame.len);
 
-    pressure_pub_->publish(msg);
+    if (!parsed) {
+        RCLCPP_WARN(get_logger(),
+                    "Invalid pressure/temperature sample frame, len=%u",
+                    static_cast<unsigned int>(frame.len));
+        return;
+    }
+
+    RCLCPP_INFO(get_logger(), "Publishing pressure=%.3f Pa, temperature=%.3f C",
+                parsed->pressure_pa, parsed->temperature_c);
+
+    std_msgs::msg::Float32 pressure_msg;
+    pressure_msg.data = parsed->pressure_pa;
+    pressure_pub_->publish(pressure_msg);
+
+    std_msgs::msg::Float32 temperature_msg;
+    temperature_msg.data = parsed->temperature_c;
+    pressure_temperature_pub_->publish(temperature_msg);
 }
 
 void CanInterfaceNode::handle_bms_temperatures(const canfd_frame& frame) {
@@ -292,7 +290,6 @@ void CanInterfaceNode::handle_bms_alert_ssa(const canfd_frame& frame) {
 }
 
 void CanInterfaceNode::handle_bms_alert_pfa1(const canfd_frame& frame) {
-
     RCLCPP_INFO(get_logger(), "bms alert pfa1");
     const auto parsed = parse_alert_pfa_1(frame.data, frame.len);
 
@@ -307,13 +304,8 @@ void CanInterfaceNode::handle_bms_alert_pfa1(const canfd_frame& frame) {
     bms_alert_pfa1_pub_->publish(msg);
 }
 
-void CanInterfaceNode::handle_bms_alert_pfa2(const canfd_frame& frame)
-{
-    RCLCPP_INFO(
-        get_logger(),
-        "[PFA2] handler entered, len=%u",
-        frame.len
-    );
+void CanInterfaceNode::handle_bms_alert_pfa2(const canfd_frame& frame) {
+    RCLCPP_INFO(get_logger(), "[PFA2] handler entered, len=%u", frame.len);
 
     if (!bms_alert_pfa2_pub_) {
         RCLCPP_ERROR(get_logger(), "[PFA2] bms_alert_pfa2_pub_ is null");
@@ -331,11 +323,7 @@ void CanInterfaceNode::handle_bms_alert_pfa2(const canfd_frame& frame)
         return;
     }
 
-    RCLCPP_INFO(
-        get_logger(),
-        "[PFA2] parsed fet=0x%04X",
-        parsed->fet
-    );
+    RCLCPP_INFO(get_logger(), "[PFA2] parsed fet=0x%04X", parsed->fet);
 
     std_msgs::msg::UInt16 msg;
     msg.data = parsed->fet;

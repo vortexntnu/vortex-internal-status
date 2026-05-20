@@ -58,7 +58,8 @@ struct BmsCellVoltages {
 };
 
 struct PressureSample {
-    double pressure_hPa;
+    float temperature_c;
+    float pressure_pa;
 };
 
 struct LeakageAlarm {

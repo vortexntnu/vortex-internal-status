@@ -119,12 +119,14 @@ std::optional<BmsCellVoltages> parse_voltage(const uint8_t* data, size_t len)
 
 std::optional<PressureSample> parse_pressure_sample(const uint8_t* data, size_t len)
 {
-    if (len < sizeof(double)) {
+    if (len < 2 * sizeof(float)) {
         return std::nullopt;
     }
 
     PressureSample result{};
-    std::memcpy(&result.pressure_hPa, data, sizeof(double));
+
+    std::memcpy(&result.temperature_c, data, sizeof(float));
+    std::memcpy(&result.pressure_pa, data + sizeof(float), sizeof(float));
 
     return result;
 }

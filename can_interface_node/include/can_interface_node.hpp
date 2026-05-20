@@ -22,13 +22,13 @@
 #include "can_interface.hpp"
 #include "can_registry.hpp"
 
-class CanInterfaceNode : public rclcpp::Node
-{
-public:
-    explicit CanInterfaceNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
+class CanInterfaceNode : public rclcpp::Node {
+   public:
+    explicit CanInterfaceNode(
+        const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
     ~CanInterfaceNode() override;
 
-private:
+   private:
     void init_registry();
 
     std::string make_log_filename() const;
@@ -49,7 +49,7 @@ private:
     void handle_pressure_sample(const canfd_frame& frame);
     void handle_leakage_alarm(const canfd_frame& frame);
 
-private:
+   private:
     std::string can_interface_name_;
     std::string log_directory_;
 
@@ -65,15 +65,21 @@ private:
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr decoded_pub_;
 
-    rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr bms_cell_voltages_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr
+        bms_cell_voltages_pub_;
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr bms_current_pub_;
     rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr bms_current_counts_pub_;
-    rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr bms_temperatures_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr
+        bms_temperatures_pub_;
 
-    rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr bms_alert_ssa_pub_;
-    rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr bms_alert_pfa1_pub_;
+    rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr
+        bms_alert_ssa_pub_;
+    rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr
+        bms_alert_pfa1_pub_;
     rclcpp::Publisher<std_msgs::msg::UInt16>::SharedPtr bms_alert_pfa2_pub_;
 
-    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr pressure_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pressure_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr
+        pressure_temperature_pub_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr leakage_alarm_pub_;
 };
