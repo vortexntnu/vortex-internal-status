@@ -11,7 +11,7 @@ MS5837Node::MS5837Node(const rclcpp::NodeOptions& options)
               static_cast<uint8_t>(declare_parameter<int>("i2c_address", 0x76)))
 {
     fluid_density_ = declare_parameter<double>("fluid_density", 1029.0);
-    frame_id_ = declare_parameter<std::string>("frame_id", "ms5837_link");
+    frame_id_ = declare_parameter<std::string>("frame_id", "pressure_sensor_link");
     publish_depth_ = declare_parameter<bool>("publish_depth", true);
     publish_altitude_ = declare_parameter<bool>("publish_altitude", false);
     rate_hz_ = declare_parameter<double>("rate_hz", 10.0);
