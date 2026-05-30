@@ -70,11 +70,6 @@ bool MS5837::writeByte(uint8_t value) {
 }
 
 bool MS5837::writeRead(uint8_t reg, uint8_t* rx, uint16_t len) {
-    std::cerr << "writeRead: dev=" << i2c_device_ << " fd=" << fd_ << " addr=0x"
-              << std::hex << static_cast<int>(address_) << " reg=0x"
-              << static_cast<int>(reg) << " len=" << std::dec << len
-              << std::endl;
-
     if (fd_ < 0 || rx == nullptr || len == 0) {
         return false;
     }
@@ -114,11 +109,6 @@ bool MS5837::readPROM() {
                 break;
             }
 
-            std::cerr << "PROM read failed: index=" << static_cast<int>(i)
-                      << " cmd=0x" << std::hex << static_cast<int>(addr)
-                      << std::dec << " attempt=" << attempt
-                      << std::endl;
-
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
 
@@ -130,10 +120,6 @@ bool MS5837::readPROM() {
             (static_cast<uint16_t>(rx[0]) << 8) |
             static_cast<uint16_t>(rx[1])
         );
-
-        std::cerr << "PROM[" << static_cast<int>(i)
-                  << "] = 0x" << std::hex << C_[i]
-                  << std::dec << std::endl;
 
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
