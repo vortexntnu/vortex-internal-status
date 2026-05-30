@@ -7,16 +7,22 @@
 
 MS5837Node::MS5837Node(const rclcpp::NodeOptions& options)
     : Node("ms5837_node", options),
-      sensor_(declare_parameter<std::string>("i2c_device", "/dev/i2c-1"),
-              static_cast<uint8_t>(declare_parameter<int>("i2c_address", 0x76)))
-{
+      sensor_(
+          declare_parameter<std::string>("i2c_device", "/dev/i2c-1"),
+          static_cast<uint8_t>(declare_parameter<int>("i2c_address", 0x76))) {
     fluid_density_ = declare_parameter<double>("fluid_density", 1029.0);
-    frame_id_ = declare_parameter<std::string>("frame_id", "pressure_sensor_link");
+    atmospheric_pressure_ =
+        declare_parameter<double>("atmospheric_pressure", 101300.0);
+    gravity_ = declare_parameter<double>("gravity", 9.80665);
+    frame_id_ =
+        declare_parameter<std::string>("frame_id", "pressure_sensor_link");
     publish_depth_ = declare_parameter<bool>("publish_depth", true);
     publish_altitude_ = declare_parameter<bool>("publish_altitude", false);
     rate_hz_ = declare_parameter<double>("rate_hz", 10.0);
 
     sensor_.setFluidDensity(static_cast<float>(fluid_density_));
+    sensor_.setAtmosphericPressure(static_cast<float>(atmospheric_pressure_));
+    sensor_.setGravity(static_cast<float>(gravity_));
 
     const int forced_model = declare_parameter<int>("model", 0);
     if (forced_model == 1) {
@@ -30,15 +36,18 @@ MS5837Node::MS5837Node(const rclcpp::NodeOptions& options)
         throw std::runtime_error("MS5837 init failed");
     }
 
-    pressure_pub_ = create_publisher<sensor_msgs::msg::FluidPressure>("pressure", 10);
-    temp_pub_ = create_publisher<sensor_msgs::msg::Temperature>("temperature", 10);
+    pressure_pub_ =
+        create_publisher<sensor_msgs::msg::FluidPressure>("pressure", 10);
+    temp_pub_ =
+        create_publisher<sensor_msgs::msg::Temperature>("temperature", 10);
 
     if (publish_depth_) {
         depth_pub_ = create_publisher<std_msgs::msg::Float32>("depth", 10);
     }
 
     if (publish_altitude_) {
-        altitude_pub_ = create_publisher<std_msgs::msg::Float32>("altitude", 10);
+        altitude_pub_ =
+            create_publisher<std_msgs::msg::Float32>("altitude", 10);
     }
 
     const auto period = std::chrono::duration<double>(1.0 / rate_hz_);
@@ -49,10 +58,10 @@ MS5837Node::MS5837Node(const rclcpp::NodeOptions& options)
     RCLCPP_INFO(get_logger(), "MS5837 node started");
 }
 
-void MS5837Node::update()
-{
+void MS5837Node::update() {
     if (!sensor_.read()) {
-        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "MS5837 read failed");
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+                             "MS5837 read failed");
         return;
     }
 
@@ -85,8 +94,7 @@ void MS5837Node::update()
     }
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<MS5837Node>());
     rclcpp::shutdown();

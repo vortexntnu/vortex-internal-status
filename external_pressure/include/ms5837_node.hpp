@@ -1,7 +1,6 @@
 #ifndef MS5837_NODE_HPP_
 #define MS5837_NODE_HPP_
 
-
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/fluid_pressure.hpp"
 #include "sensor_msgs/msg/temperature.hpp"
@@ -11,17 +10,19 @@
 
 #include <string>
 
-class MS5837Node : public rclcpp::Node
-{
-public:
-    explicit MS5837Node(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
+class MS5837Node : public rclcpp::Node {
+   public:
+    explicit MS5837Node(
+        const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
 
-private:
+   private:
     void update();
 
     MS5837 sensor_;
 
     double fluid_density_;
+    double atmospheric_pressure_;
+    double gravity_;
     double rate_hz_;
     bool publish_depth_;
     bool publish_altitude_;
@@ -34,4 +35,4 @@ private:
     rclcpp::TimerBase::SharedPtr timer_;
 };
 
-#endif // !MS5837_NODE_HPP_
+#endif  // !MS5837_NODE_HPP_

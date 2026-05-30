@@ -91,7 +91,6 @@ bool MS5837::reset() {
     return writeByte(RESET);
 }
 
-
 bool MS5837::readPROM() {
     uint8_t rx[2] = {0, 0};
 
@@ -116,10 +115,8 @@ bool MS5837::readPROM() {
             return false;
         }
 
-        C_[i] = static_cast<uint16_t>(
-            (static_cast<uint16_t>(rx[0]) << 8) |
-            static_cast<uint16_t>(rx[1])
-        );
+        C_[i] = static_cast<uint16_t>((static_cast<uint16_t>(rx[0]) << 8) |
+                                      static_cast<uint16_t>(rx[1]));
 
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
@@ -187,6 +184,14 @@ MS5837::Model MS5837::getModel() const {
 
 void MS5837::setFluidDensity(float density) {
     fluid_density_ = density;
+}
+
+void MS5837::setAtmosphericPressure(float pressure_pa) {
+    atmospheric_pressure_ = pressure_pa;
+}
+
+void MS5837::setGravity(float gravity) {
+    gravity_ = gravity;
 }
 
 bool MS5837::read() {
@@ -331,7 +336,7 @@ float MS5837::temperature() const {
 
 float MS5837::depth() const {
     float pressure_pa = pressure(PressureUnit::Pa);
-    return (pressure_pa - 101300.0f) / (fluid_density_ * 9.80665f);
+    return (pressure_pa - atmospheric_pressure_) / (fluid_density_ * gravity_);
 }
 
 float MS5837::altitude() const {

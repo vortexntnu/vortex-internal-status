@@ -35,6 +35,8 @@ class MS5837 {
     Model getModel() const;
 
     void setFluidDensity(float density);
+    void setAtmosphericPressure(float pressure_pa);
+    void setGravity(float gravity);
 
     float pressure(float conversion = PressureUnit::Pa) const;
     float temperature() const;
@@ -79,6 +81,8 @@ class MS5837 {
     int32_t P_{0};
 
     float fluid_density_{1029.0f};
+    float atmospheric_pressure_{101300.0f};
+    float gravity_{9.80665f};
     Model model_{MODEL_UNRECOGNISED};
     bool initialized_{false};
 };
