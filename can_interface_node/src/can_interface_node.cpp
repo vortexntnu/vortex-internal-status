@@ -1,5 +1,4 @@
 #include "can_interface_node.hpp"
-
 #include <chrono>
 #include <iomanip>
 #include <ostream>
@@ -46,6 +45,12 @@ CanInterfaceNode::CanInterfaceNode(const rclcpp::NodeOptions& options)
 
     leakage_alarm_pub_ =
         create_publisher<std_msgs::msg::Bool>("leakage/alarm", 10);
+
+    operation_mode_sub_ =
+        this->create_subscription<vortex_msgs::msg::OperationMode>(
+            "operation_mode", rclcpp::QoS(10),
+            std::bind(&CanInterfaceNode::operation_mode_callback, this,
+                      std::placeholders::_1));
 
     // 2. Register handlers
     init_registry();
@@ -131,7 +136,6 @@ void CanInterfaceNode::receive_loop() {
     while (rclcpp::ok() && running_.load()) {
         canfd_frame frame{};
 
-
         const can_status status = can_.receive(frame, 1000);
 
         if (status == can_status::OK) {
@@ -143,7 +147,6 @@ void CanInterfaceNode::receive_loop() {
             break;
         }
     }
-
 }
 
 void CanInterfaceNode::handle_frame(const canfd_frame& frame) {
@@ -193,7 +196,6 @@ void CanInterfaceNode::handle_bms_current(const canfd_frame& frame) {
     bms_current_counts_pub_->publish(counts_msg);
 }
 void CanInterfaceNode::handle_pressure_sample(const canfd_frame& frame) {
-
     if (!pressure_pub_) {
         RCLCPP_ERROR(get_logger(), "pressure_pub_ is null");
         return;
@@ -270,28 +272,22 @@ void CanInterfaceNode::handle_bms_alert_pfa1(const canfd_frame& frame) {
 }
 
 void CanInterfaceNode::handle_bms_alert_pfa2(const canfd_frame& frame) {
-
     if (!bms_alert_pfa2_pub_) {
         RCLCPP_ERROR(get_logger(), "[PFA2] bms_alert_pfa2_pub_ is null");
         return;
     }
 
-
     const auto parsed = parse_alert_pfa_2(frame.data, frame.len);
-
 
     if (!parsed) {
         RCLCPP_WARN(get_logger(), "[PFA2] invalid BMS PFA2 alert frame");
         return;
     }
 
-
     std_msgs::msg::UInt16 msg;
     msg.data = parsed->fet;
 
-
     bms_alert_pfa2_pub_->publish(msg);
-
 }
 
 void CanInterfaceNode::handle_leakage_alarm(const canfd_frame& frame) {
@@ -306,6 +302,30 @@ void CanInterfaceNode::handle_leakage_alarm(const canfd_frame& frame) {
     msg.data = parsed->active;
 
     leakage_alarm_pub_->publish(msg);
+}
+
+void CanInterfaceNode::operation_mode_callback(
+    const vortex_msgs::msg::OperationMode::SharedPtr msg) {
+    const uint8_t new_mode = msg->operation_mode;
+
+    if (current_operation_mode_ == 255) {
+        current_operation_mode_ = new_mode;
+
+        RCLCPP_INFO(this->get_logger(), "Initial operation mode: %u", new_mode);
+
+        // handle_operation_mode_change(new_mode);
+        return;
+    }
+
+    // Ignore repeated values
+    if (new_mode == current_operation_mode_) {
+        return;
+    }
+
+    const uint8_t old_mode = current_operation_mode_;
+    current_operation_mode_ = new_mode;
+
+    // handle_operation_mode_change(new_mode);
 }
 
 int main(int argc, char* argv[]) {

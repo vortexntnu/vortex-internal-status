@@ -11,6 +11,7 @@ find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(fmt REQUIRED)
+find_package(vortex_msgs REQUIRED)
 
 add_executable(can_interface_node
   src/can_interface_node.cpp
@@ -30,6 +31,7 @@ ament_target_dependencies(can_interface_node
   sensor_msgs
   spdlog
   fmt
+  vortex_msgs
 )
 
 target_link_libraries(can_interface_node

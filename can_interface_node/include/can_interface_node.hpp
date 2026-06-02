@@ -18,6 +18,7 @@
 #include <std_msgs/msg/string.hpp>
 #include <std_msgs/msg/u_int16.hpp>
 #include <std_msgs/msg/u_int16_multi_array.hpp>
+#include <vortex_msgs/msg/operation_mode.hpp>
 
 #include "can_interface.hpp"
 #include "can_registry.hpp"
@@ -48,6 +49,9 @@ class CanInterfaceNode : public rclcpp::Node {
 
     void handle_pressure_sample(const canfd_frame& frame);
     void handle_leakage_alarm(const canfd_frame& frame);
+
+    void operation_mode_callback(const vortex_msgs::msg::OperationMode::SharedPtr msg);
+
 
    private:
     std::string can_interface_name_;
@@ -82,4 +86,12 @@ class CanInterfaceNode : public rclcpp::Node {
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr
         pressure_temperature_pub_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr leakage_alarm_pub_;
+
+    rclcpp::Subscription<vortex_msgs::msg::OperationMode>::SharedPtr operation_mode_sub_;
+
+    uint8_t current_operation_mode_;
 };
+
+
+
+
