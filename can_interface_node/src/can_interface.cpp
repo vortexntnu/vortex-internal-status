@@ -30,14 +30,6 @@ can_status can_interface::init(const std::string& ifname) {
         return can_status::ERR_CANFD_SUPPORT;
     }
 
-    // Enable loopback (receive own frames). Only use for vcan testing
-    // int recv_own_msgs = 1;
-    // if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS,
-    //               &recv_own_msgs, sizeof(recv_own_msgs)) < 0) {
-    //    close(socket_fd_);
-    //    return can_status::ERR_LOOPBACK;
-    //}
-
     struct ifreq ifr;
     std::strcpy(ifr.ifr_name, interface_name_.c_str());
     if (ioctl(socket_fd_, SIOCGIFINDEX, &ifr) < 0) {
