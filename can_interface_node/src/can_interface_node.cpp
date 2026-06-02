@@ -127,23 +127,6 @@ uint32_t CanInterfaceNode::get_can_id(const canfd_frame& frame) {
     return frame.can_id & CAN_SFF_MASK;
 }
 
-//
-// void CanInterfaceNode::receive_loop() {
-//     while (rclcpp::ok() && running_.load()) {
-//         canfd_frame frame{};
-//
-//         const can_status status = can_.receive(frame, 1000);
-//
-//         if (status == can_status::OK) {
-//             handle_frame(frame);
-//         } else if (status == can_status::ERR_RECEIVE) {
-//             continue;
-//         } else {
-//             RCLCPP_ERROR(get_logger(), "CAN receive error");
-//             break;
-//         }
-//     }
-// }
 void CanInterfaceNode::receive_loop() {
     while (rclcpp::ok() && running_.load()) {
         canfd_frame frame{};
