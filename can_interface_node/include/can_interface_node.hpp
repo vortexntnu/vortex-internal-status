@@ -89,7 +89,7 @@ class CanInterfaceNode : public rclcpp::Node {
 
     rclcpp::Subscription<vortex_msgs::msg::OperationMode>::SharedPtr operation_mode_sub_;
 
-    uint8_t current_operation_mode_;
+    uint8_t current_operation_mode_ = 255;
 };
 
 

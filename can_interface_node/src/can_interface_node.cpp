@@ -1,4 +1,5 @@
 #include "can_interface_node.hpp"
+#include <linux/can.h>
 #include <chrono>
 #include <iomanip>
 #include <ostream>
@@ -313,7 +314,7 @@ void CanInterfaceNode::operation_mode_callback(
 
         RCLCPP_INFO(this->get_logger(), "Initial operation mode: %u", new_mode);
 
-        // handle_operation_mode_change(new_mode);
+        can_.send(CAN_OPERATION_MODE_ID, &new_mode, 1);
         return;
     }
 
@@ -324,8 +325,8 @@ void CanInterfaceNode::operation_mode_callback(
 
     const uint8_t old_mode = current_operation_mode_;
     current_operation_mode_ = new_mode;
+    can_.send(CAN_OPERATION_MODE_ID, &new_mode, 1);
 
-    // handle_operation_mode_change(new_mode);
 }
 
 int main(int argc, char* argv[]) {

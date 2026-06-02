@@ -20,11 +20,15 @@
 #define CAN_RST_MCU 0x104         // EXAMPLE VALUE
 // #define CAN_CURRENT_ID 0x105     //EXAMPLE VALUE
 
+#define CAN_OPERATION_MODE_ID 0x50 
+
 #define CAN_ALERT_SSA_ID 0x200u
 #define CAN_ALERT_PFA_1_ID 0x201u
 #define CAN_ALERT_PFA_2_ID 0x202u
 #define CAN_CURRENT_ID 0x203u
 #define CAN_VOLTAGE_ID 0x204  // EXAMPLE VALUE
+
+
 
 struct BmsAlertSsa {
     uint16_t alarm;
