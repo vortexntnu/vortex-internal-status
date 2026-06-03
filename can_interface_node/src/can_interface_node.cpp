@@ -54,6 +54,12 @@ CanInterfaceNode::CanInterfaceNode(const rclcpp::NodeOptions& options)
             std::bind(&CanInterfaceNode::operation_mode_callback, this,
                       std::placeholders::_1));
 
+    killswitch_sub_ =
+        this->create_subscription<std_msgs::msg::Bool>(
+            "killswitch", rclcpp::QoS(10),
+            std::bind(&CanInterfaceNode::killswitch_callback, this,
+                      std::placeholders::_1));
+
     // 2. Register handlers
     init_registry();
 
@@ -321,6 +327,10 @@ void CanInterfaceNode::operation_mode_callback(
     const vortex_msgs::msg::OperationMode::SharedPtr msg) {
     const uint8_t new_mode = msg->operation_mode;
 
+    if (killswitch_on_) {
+        return;
+    }
+
     if (current_operation_mode_ == 255) {
         current_operation_mode_ = new_mode;
 
@@ -340,6 +350,24 @@ void CanInterfaceNode::operation_mode_callback(
     can_.send(CAN_OPERATION_MODE_ID, &new_mode, 1);
 
 }
+
+void CanInterfaceNode::killswitch_callback(
+    const std_msgs::msg::Bool::SharedPtr msg) {
+    
+    bool new_killswitch = msg->data;
+
+    if (new_killswitch == killswitch_on_){
+        current_operation_mode_ = 255;
+        return;
+    }
+
+    killswitch_on_ = new_killswitch;
+
+    uint8_t new_mode = 0;
+
+    can_.send(CAN_OPERATION_MODE_ID, &new_mode, 1);
+}
+
 
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);

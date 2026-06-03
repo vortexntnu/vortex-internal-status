@@ -54,6 +54,8 @@ class CanInterfaceNode : public rclcpp::Node {
     void operation_mode_callback(
         const vortex_msgs::msg::OperationMode::SharedPtr msg);
 
+    void killswitch_callback(const std_msgs::msg::Bool::SharedPtr msg);
+
    private:
     std::string can_interface_name_;
     std::string log_directory_;
@@ -91,5 +93,8 @@ class CanInterfaceNode : public rclcpp::Node {
     rclcpp::Subscription<vortex_msgs::msg::OperationMode>::SharedPtr
         operation_mode_sub_;
 
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr killswitch_sub_;
+
     uint8_t current_operation_mode_ = 255;
+    bool killswitch_on_ = false;
 };
