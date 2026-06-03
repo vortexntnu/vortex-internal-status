@@ -21,6 +21,7 @@
 // #define CAN_CURRENT_ID 0x105     //EXAMPLE VALUE
 
 #define CAN_OPERATION_MODE_ID 0x50 
+#define CAN_PI_STATUS 0x69
 
 #define CAN_ALERT_SSA_ID 0x200u
 #define CAN_ALERT_PFA_1_ID 0x201u

@@ -1,6 +1,7 @@
 #include "can_interface_node.hpp"
 #include <linux/can.h>
 #include <chrono>
+#include <cstdint>
 #include <iomanip>
 #include <ostream>
 #include <sstream>
@@ -304,6 +305,13 @@ void CanInterfaceNode::handle_leakage_alarm(const canfd_frame& frame) {
 
     leakage_alarm_pub_->publish(msg);
 }
+
+
+void CanInterfaceNode::handle_pi_status(const canfd_frame& frame) {
+    uint8_t dummy = 69;
+    can_.send(CAN_PI_STATUS, &dummy, 1);
+}
+
 
 void CanInterfaceNode::operation_mode_callback(
     const vortex_msgs::msg::OperationMode::SharedPtr msg) {

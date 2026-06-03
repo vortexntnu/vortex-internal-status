@@ -49,9 +49,10 @@ class CanInterfaceNode : public rclcpp::Node {
 
     void handle_pressure_sample(const canfd_frame& frame);
     void handle_leakage_alarm(const canfd_frame& frame);
+    void handle_pi_status(const canfd_frame& frame);
 
-    void operation_mode_callback(const vortex_msgs::msg::OperationMode::SharedPtr msg);
-
+    void operation_mode_callback(
+        const vortex_msgs::msg::OperationMode::SharedPtr msg);
 
    private:
     std::string can_interface_name_;
@@ -87,11 +88,8 @@ class CanInterfaceNode : public rclcpp::Node {
         pressure_temperature_pub_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr leakage_alarm_pub_;
 
-    rclcpp::Subscription<vortex_msgs::msg::OperationMode>::SharedPtr operation_mode_sub_;
+    rclcpp::Subscription<vortex_msgs::msg::OperationMode>::SharedPtr
+        operation_mode_sub_;
 
     uint8_t current_operation_mode_ = 255;
 };
-
-
-
-
