@@ -328,6 +328,7 @@ void CanInterfaceNode::operation_mode_callback(
     const uint8_t new_mode = msg->operation_mode;
 
     if (killswitch_on_) {
+        current_operation_mode_ = new_mode;
         return;
     }
 
@@ -357,13 +358,18 @@ void CanInterfaceNode::killswitch_callback(
     bool new_killswitch = msg->data;
 
     if (new_killswitch == killswitch_on_){
-        current_operation_mode_ = 255;
         return;
     }
 
     killswitch_on_ = new_killswitch;
 
     uint8_t new_mode = 0;
+
+    if (killswitch_on_){
+        new_mode = 0;
+    } else {
+        new_mode = current_operation_mode_;
+    }
 
     can_.send(CAN_OPERATION_MODE_ID, &new_mode, 1);
 }
