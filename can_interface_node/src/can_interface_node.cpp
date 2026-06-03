@@ -72,10 +72,12 @@ CanInterfaceNode::CanInterfaceNode(const rclcpp::NodeOptions& options)
 
     // 4. Optional startup command
     if (start_bms_on_startup_) {
-        uint8_t dummy = 0;
+        uint8_t dummy = 0x11;
         can_.send(0x215, &dummy, 1);
         RCLCPP_INFO(get_logger(), "Sent BMS start command");
     }
+
+    can_.send(0x101, &dummy, 1);
 
     // 5. Only now start the receive thread
     running_.store(true);
