@@ -80,9 +80,9 @@ CanInterfaceNode::CanInterfaceNode(const rclcpp::NodeOptions& options)
 
     uint8_t data[2] = {0};
 
-    can_.send(0x101, &dummy, 2);
-    can_.send(0x102, &dummy, 2);
-    can_.send(0x103, &dummy, 2);
+    can_.send(0x101, &data, 2);
+    can_.send(0x102, &data, 2);
+    can_.send(0x103, &data, 2);
     // 5. Only now start the receive thread
     running_.store(true);
     receive_thread_ = std::thread(&CanInterfaceNode::receive_loop, this);
