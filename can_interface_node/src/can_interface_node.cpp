@@ -70,19 +70,12 @@ CanInterfaceNode::CanInterfaceNode(const rclcpp::NodeOptions& options)
                                  can_interface_name_);
     }
 
-    const uint8_t dummy = 0x11;
-    if (start_bms_on_startup_) {
-        can_.send(0x215, &dummy, 1);
-        RCLCPP_INFO(get_logger(), "Sent BMS start command");
-    }
+    // In constructor
+    startup_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(50),
+        std::bind(&CanInterfaceNode::startup_send_sequence, this)
+    );
 
-    can_.send(0x101, &dummy, 1);
-
-    const uint8_t data[2] = {0};
-
-    can_.send(0x101, data, 2);
-    can_.send(0x102, data, 2);
-    can_.send(0x103, data, 2);
     // 5. Only now start the receive thread
     running_.store(true);
     receive_thread_ = std::thread(&CanInterfaceNode::receive_loop, this);
@@ -105,6 +98,37 @@ CanInterfaceNode::~CanInterfaceNode() {
     }
 
     RCLCPP_INFO(get_logger(), "CAN interface node stopped");
+}
+
+void CanInterfaceNode::startup_send_sequence()
+{
+    const uint8_t dummy = 0x11;
+
+    switch (startup_send_step_) {
+        case 0:
+            if (start_bms_on_startup_) {
+                can_.send(0x215, &dummy, 1);
+                RCLCPP_INFO(get_logger(), "Sent BMS start command");
+            }
+            break;
+
+        case 1:
+            can_.send(0x101, &dummy, 1);
+            RCLCPP_INFO(get_logger(), "Sent startup command 0x101");
+            break;
+
+        case 2:
+            can_.send(0x102, &dummy, 1);
+            RCLCPP_INFO(get_logger(), "Sent startup command 0x102");
+            break;
+
+        default:
+            startup_timer_->cancel();
+            RCLCPP_INFO(get_logger(), "Startup CAN sequence complete");
+            return;
+    }
+
+    startup_send_step_++;
 }
 
 void CanInterfaceNode::init_registry() {

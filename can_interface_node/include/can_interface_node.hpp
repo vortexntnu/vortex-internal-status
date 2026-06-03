@@ -36,6 +36,7 @@ class CanInterfaceNode : public rclcpp::Node {
 
     static uint32_t get_can_id(const canfd_frame& frame);
 
+    void startup_send_sequence();
     void receive_loop();
     void handle_frame(const canfd_frame& frame);
 
@@ -69,6 +70,8 @@ class CanInterfaceNode : public rclcpp::Node {
 
     CanRegistry registry_;
     can_interface can_;
+    rclcpp::TimerBase::SharedPtr startup_timer_;
+    size_t startup_send_step_ = 0;
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr decoded_pub_;
 
