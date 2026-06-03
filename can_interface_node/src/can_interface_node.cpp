@@ -124,6 +124,10 @@ void CanInterfaceNode::init_registry() {
     registry_.add(
         {CAN_PRESSURE_ID, "Pressure Sample",
          [this](const canfd_frame& frame) { handle_pressure_sample(frame); }});
+
+    registry_.add(
+        {CAN_PI_STATUS, "PI status ack",
+         [this](const canfd_frame& frame) { handle_pi_status(frame); }});
 }
 
 uint32_t CanInterfaceNode::get_can_id(const canfd_frame& frame) {
